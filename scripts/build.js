@@ -48,10 +48,14 @@ const banner = `// ==UserScript==
 // @match        https://app.ynab.com/*
 // @icon         https://www.google.com/s2/favicons?sz=64&domain=ynab.com
 // @grant        GM_xmlhttpRequest
+// @grant        unsafeWindow
 // @run-at       document-body
 // ==/UserScript==`;
 
-const output = `${banner}\n${code}`;
+const ynabLoggerCode = `console.ynab = (...args) => {
+  console.log(...args, 'ez');
+};`;
+const output = `${banner}\n${ynabLoggerCode}\n${code}`;
 
 await mkdir(dirname(outfile), { recursive: true });
 await writeFile(outfile, output);
