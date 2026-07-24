@@ -7,6 +7,12 @@ export type DateFormat =
   | "12/31/1969"
   | "1969.12.31";
 
+export interface DateStruct {
+  day: string;
+  month: string;
+  year: string;
+}
+
 function getDateFormat() {
   const exampleDate = unsafeWindow.ynab?.formatDate(0) as
     DateFormat | undefined;
@@ -18,11 +24,7 @@ function getDateFormat() {
  * Takes in a date string and outputs its day, month, and year as an object.
  * @param date The stringified value from YNAB.
  */
-export function parseDate(date: string): {
-  day: string;
-  month: string;
-  year: string;
-} {
+export function parseDate(date: string): DateStruct {
   if (!date) throw Error("Failed to parse empty date.");
 
   const format = getDateFormat();

@@ -1,10 +1,5 @@
 import { CurrencyCode } from "./types/ynab";
-
-type FetchCurrencyDate = {
-  day: string;
-  month: string;
-  year: string;
-};
+import { DateStruct } from "./ynab-conversion";
 
 type CurrencyRates<B extends CurrencyCode, C extends CurrencyCode> = {
   amount: number;
@@ -16,7 +11,7 @@ type CurrencyRates<B extends CurrencyCode, C extends CurrencyCode> = {
 async function fetchCurrency<B extends CurrencyCode, C extends CurrencyCode>(
   base: B,
   converted: C,
-  date: FetchCurrencyDate,
+  date: DateStruct,
 ): Promise<CurrencyRates<B, C>> {
   const formattedDate = `${date.year}-${date.month.padStart(2, "0")}-${date.day.padStart(2, "0")}`;
   const url = `https://api.frankfurter.dev/v1/${formattedDate}?base=${encodeURIComponent(base)}&symbols=${encodeURIComponent(converted)}`;
@@ -45,22 +40,23 @@ async function fetchCurrency<B extends CurrencyCode, C extends CurrencyCode>(
   return JSON.parse(responseText) as CurrencyRates<B, C>;
 }
 
+const defaultCurrency: CurrencyCode = "CAD";
+
 const currencyLookup: Map<string, number> = new Map();
 
 export async function getCurrencyRate(
-  base: CurrencyCode,
-  converted: CurrencyCode,
-  date: FetchCurrencyDate,
+  date: DateStruct,
+  convertTo?: CurrencyCode,
 ): Promise<number> {
-  if (!base) throw Error("Supplied an empty string as the base currency.");
-  if (!converted)
+  const base = defaultCurrency;
+  if (!convertTo)
     throw Error("Supplied an empty string as the converted currency.");
-  if (base === converted) return 1.0;
+  if (base === convertTo) return 1.0;
 
-  const key = `-${date.day}-${date.month}-${date.year}-${base}-${converted}`;
+  const key = `-${date.day}-${date.month}-${date.year}-${base}-${convertTo}`;
   const found = currencyLookup.get(key);
   if (found !== undefined) return found;
-  const fetched = await fetchCurrency(base, converted, date);
-  currencyLookup.set(key, fetched.rates[converted]);
-  return fetched.rates[converted];
+  const fetched = await fetchCurrency(base, convertTo, date);
+  currencyLookup.set(key, fetched.rates[convertTo]);
+  return fetched.rates[convertTo];
 }

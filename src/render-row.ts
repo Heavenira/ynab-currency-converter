@@ -105,9 +105,8 @@ async function obtainFinal(metadata: Metadata, accountName: string) {
 
   if (account.currency?.code) {
     const conversion = await getCurrencyRate(
-      "CAD",
-      account.currency.code,
       metadata.date,
+      account.currency.code,
     );
 
     const target = conversion;
