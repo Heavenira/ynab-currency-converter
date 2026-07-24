@@ -1,7 +1,7 @@
 import { parseCurrency } from "./currency";
 import { parseDate } from "./date";
 
-const METADATA_MEMO_KEY = "§";
+const METADATA_MEMO_KEY = "DATA";
 const BANK_OUTFLOW_KEY = "O";
 const RATE_OUTFLOW_KEY = "o";
 const BANK_INFLOW_KEY = "I";
@@ -40,7 +40,6 @@ function isValidMetadataMemo(
   const objectInner = metadata[keyMain as keyof object];
   if (typeof objectInner !== "object" || objectInner === null) return false;
   const keysInner = Object.keys(objectInner);
-  if (keysInner.length < 2) return false;
 
   for (const key of keysInner) {
     if (!INNER_KEYS.includes(key)) return false;
@@ -179,9 +178,9 @@ export class Metadata {
   }
 
   get rateInflow(): number | undefined {
-    return this.metadata[METADATA_MEMO_KEY][BANK_INFLOW_KEY];
+    return this.metadata[METADATA_MEMO_KEY][RATE_INFLOW_KEY];
   }
   set rateInflow(amount: number) {
-    this.metadata[METADATA_MEMO_KEY][BANK_INFLOW_KEY] = amount;
+    this.metadata[METADATA_MEMO_KEY][RATE_INFLOW_KEY] = amount;
   }
 }

@@ -1,5 +1,5 @@
 import { analyzeRow } from "./analyze-row";
-import { fetchCurrency } from "./fetch-currency";
+import { getCurrencyRate } from "./convert-currency";
 import {
   AccountInfo,
   accounts,
@@ -77,7 +77,8 @@ function attachRowObservers(metadata: Metadata) {
  * @returns
  */
 async function obtainFinal(metadata: Metadata, accountName: string) {
-  const { inflow, outflow } = metadata;
+  const { inflow, outflow, bankInflow, bankOutflow, rateInflow, rateOutflow } =
+    metadata;
 
   let account = accounts.getCurrent();
   if (!account) account = accounts.getName(accountName);
@@ -87,36 +88,36 @@ async function obtainFinal(metadata: Metadata, accountName: string) {
   if (inflow > 0) mode = "inflow";
   if (outflow > 0) mode = "outflow";
 
-  let bank: number | undefined = undefined;
-  let rate: number | undefined = undefined;
+  let bankGiven: number | undefined = undefined;
+  let rateGiven: number | undefined = undefined;
   switch (mode) {
     case "blank":
       break;
     case "inflow":
-      bank = metadata.bankInflow;
-      rate = metadata.rateInflow;
+      bankGiven = bankInflow;
+      rateGiven = rateInflow;
       break;
     case "outflow":
-      bank = metadata.bankOutflow;
-      rate = metadata.rateOutflow;
+      bankGiven = bankOutflow;
+      rateGiven = rateOutflow;
       break;
   }
 
   if (account.currency?.code) {
-    const conversion = await fetchCurrency(
+    const conversion = await getCurrencyRate(
       "CAD",
       account.currency.code,
       metadata.date,
     );
 
-    const target = conversion.rates[account.currency.code];
-    const given = rate ?? target;
+    const target = conversion;
+    const given = rateGiven ?? conversion;
     const percentError = (Math.abs(given - target) / Math.abs(target)) * 100;
-    rate = target;
+
     return {
       account,
-      bank,
-      rate,
+      bank: bankGiven,
+      rate: given,
       mode,
       percentError,
     };
@@ -128,7 +129,7 @@ export function renderMetadata(
   metadata: Metadata,
   isAttachingObservers: boolean,
 ) {
-  const { bankOutflow, rowId, outflow, inflow } = metadata;
+  const { rowId, outflow, inflow } = metadata;
 
   const rowDOM = document.querySelector(
     `.ynab-grid-body-row[data-row-id="${rowId}"]`,
@@ -149,22 +150,23 @@ export function renderMetadata(
   const accountDOM = rowDOM.querySelector(".ynab-grid-cell-accountName > span");
   if (!inflowDOM || !outflowDOM || !memoDOM) return;
 
-  //inflowDOM.textContent = "42069";
-  //outflowDOM.textContent = "42069";
+  const accountName = accountDOM?.textContent.trim() ?? "";
+  obtainFinal(metadata, accountName)
+    .then((final) => {
+      if (!final) return;
+      const { account, mode, bank, rate, percentError } = final;
+      if (mode === "blank") return;
 
-  obtainFinal(metadata, accountDOM?.textContent.trim() ?? "").then((final) => {
-    if (!final) return;
-    let { account, mode, bank, rate, percentError } = final;
-    if (mode === "blank") return;
+      const dom = mode === "inflow" ? inflowDOM : outflowDOM;
+      const ynabValue = mode === "inflow" ? inflow : outflow;
 
-    const dom = mode === "inflow" ? inflowDOM : outflowDOM;
-    const value = mode === "inflow" ? inflow : outflow;
-
-    console.log("got rate", rate);
-    if (!bank) {
-      bank = value * (rate ?? 1.0);
-    }
-    const stringified = account.currency?.symbol + formatCurrency(bank);
-    dom.textContent = stringified;
-  });
+      const displayValue = formatCurrency(
+        bank ?? ynabValue * rate,
+        account.currency?.symbol,
+      );
+      dom.textContent = displayValue;
+    })
+    .catch((error) => {
+      throw Error(`Failed executing renderMetadata: ${error}`);
+    });
 }

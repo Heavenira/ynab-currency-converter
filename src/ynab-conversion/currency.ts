@@ -68,12 +68,13 @@ function groupIndian(integerPart: string, separator: string): string {
 /**
  * Takes in a float and outputs it as a currency string, formatted per YNAB's settings.
  * @param amount The value to format.
+ * @param symbol The symbol to use as a prefix.
  */
-export function formatCurrency(amount: number): string {
+export function formatCurrency(amount: number, symbol?: string): string {
   const format = getCurrencyFormat();
 
   /** Technically YNAB should never need this, but good to be sure :) */
-  const sign = amount < 0 ? "-" : "";
+  const sign = symbol ?? "" + (amount < 0 ? "-" : "");
   const [integerPart, fractionPart] = Math.abs(amount).toFixed(2).split(".");
 
   switch (format) {
