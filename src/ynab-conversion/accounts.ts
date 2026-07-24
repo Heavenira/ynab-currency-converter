@@ -51,7 +51,7 @@ class Accounts {
     if (!navDOM) throw Error(`Unable to find account ID ${accountId}`);
 
     const nameDOM = navDOM.querySelector("div.nav-account-name");
-    const name = nameDOM?.getAttribute("title");
+    const name = nameDOM?.getAttribute("title")?.trim();
     if (!name) throw Error(`Unable to locate name for account ID ${accountId}`);
 
     let currency: AccountCurrency | undefined = undefined;
@@ -108,8 +108,13 @@ class Accounts {
 
   getHash(hash: string) {
     this.registerAll();
-
     const account = this.all.find((x) => x.hash === hash);
+    return account;
+  }
+
+  getName(accountName: string) {
+    this.registerAll();
+    const account = this.all.find((x) => x.name === accountName);
     return account;
   }
 }

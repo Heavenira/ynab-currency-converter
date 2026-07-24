@@ -1,5 +1,6 @@
 import { analyzeRow } from "./analyze-row";
 import {
+  AccountInfo,
   accounts,
   formatCurrency,
   Metadata,
@@ -68,34 +69,91 @@ function attachRowObservers(metadata: Metadata) {
   }
 }
 
+/**
+ * Obtains the value that will be used for the calculation.
+ * @param metadata The metadata that was already retrieved.
+ * @param accountName The name of this column, if it is specified.
+ * @returns
+ */
+function obtainFinal(metadata: Metadata, accountName: string) {
+  const { value1, hash1, value2, hash2, inflow, outflow } = metadata;
+  let finalAccount: AccountInfo | undefined = undefined;
+  let finalValue: number | undefined = undefined;
+
+  let current = accounts.getCurrent();
+  if (!current) current = accounts.getName(accountName);
+  if (!current) return undefined;
+
+  // CASE ONE: Is there no metadata existing?
+  if (value1 === -1 || !hash1) {
+    finalAccount = current;
+  }
+
+  if (!finalAccount) {
+    // CASE TWO: We can compare the metadatas to `current`.
+    if (value2 !== -1 && hash2) {
+      const temp = accounts.getHash(hash2);
+      if (temp?.hash === current.hash) {
+        finalAccount = current;
+        finalValue = value2;
+      }
+    } else if (value1 !== -1 && hash1) {
+      const temp = accounts.getHash(hash1);
+      if (temp?.hash === current.hash) {
+        finalAccount = current;
+        finalValue = value1;
+      }
+    }
+  }
+
+  if (!finalValue) {
+    if (inflow !== 0) finalValue = inflow;
+    else if (outflow !== 0) finalValue = outflow;
+  }
+
+  if (!finalAccount || !finalValue) return undefined;
+
+  return {
+    account: finalAccount,
+    value: finalValue,
+  };
+}
+
 /** Takes in metadata and overwrites the present DOM on screen of this metadata. */
 export function renderMetadata(
   metadata: Metadata,
   isAttachingObservers: boolean,
 ) {
-  const { value1, rowId, outflow, inflow } = metadata;
-
-  garbageCollect();
-  if (isAttachingObservers) attachRowObservers(metadata);
+  const { value1, hash1, value2, hash2, rowId, outflow, inflow } = metadata;
 
   const rowDOM = document.querySelector(
     `.ynab-grid-body-row[data-row-id="${rowId}"]`,
   );
+  if (!rowDOM) return;
 
-  const inflowDOM = rowDOM?.querySelector(
+  // Attaches & garbage collects the row observers.
+  garbageCollect();
+  if (isAttachingObservers) attachRowObservers(metadata);
+
+  const inflowDOM = rowDOM.querySelector(
     ".ynab-grid-cell-inflow > .tabular-nums",
   );
-  const outflowDOM = rowDOM?.querySelector(
+  const outflowDOM = rowDOM.querySelector(
     ".ynab-grid-cell-outflow > .tabular-nums",
   );
-  if (!inflowDOM || !outflowDOM) return;
+  const memoDOM = rowDOM.querySelector(".ynab-grid-cell-memo > span");
+  const accountDOM = rowDOM.querySelector(".ynab-grid-cell-accountName > span");
+  if (!inflowDOM || !outflowDOM || !memoDOM) return;
 
-  inflowDOM.textContent = "42069";
-  outflowDOM.textContent = "42069";
+  //inflowDOM.textContent = "42069";
+  //outflowDOM.textContent = "42069";
+
+  const final = obtainFinal(metadata, accountDOM?.textContent.trim() ?? "");
+  if (!final) return;
 
   if (value1 !== -1) {
     const account = accounts.getCurrent();
-    const stringified = account?.currency?.symbol + formatCurrency(value1);
+    const stringified = final.account.currency?.symbol + formatCurrency(value1);
     inflowDOM.textContent = stringified;
     outflowDOM.textContent = stringified;
   }
