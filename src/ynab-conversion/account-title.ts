@@ -15,7 +15,12 @@ interface AccountInfo {
  * Extracts the currency code + symbol.
  * @param title Hello.
  */
-export function parseAccountTitle(title: string): AccountInfo | undefined {
+export function getAccountCurrency(): AccountInfo | undefined {
+  /** The current account title of the page. */
+  const title =
+    document.querySelector(".js-accounts-header-account-name")?.textContent ||
+    "";
+
   for (const code of CURRENCY_CODES) {
     const regex = new RegExp(`(\\S+)(${code})(?:\\b|\\))`);
     const match = title.match(regex);

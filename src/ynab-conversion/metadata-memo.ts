@@ -1,7 +1,7 @@
 import { parseCurrency } from "./currency";
 import { parseDate } from "./date";
 
-const METADATA_MEMO_KEY = "md";
+const METADATA_MEMO_KEY = "DATA";
 const FOREIGN_AMOUNT_KEY = "fa";
 
 type MetadataMemoStruct = {
@@ -101,11 +101,10 @@ export class Metadata {
     let temp: MetadataMemoStruct | undefined = undefined;
 
     try {
-      // Now let's identify the metadata that exists in this column.
-      const match = this.memo.match(METADATA_MEMO_KEY);
+      // Now let's identify the metadata JSON that exists in this row.
+      const match = this.memo.match('{"' + METADATA_MEMO_KEY + '":');
       if (match) {
-        // The `{` character starts two units before the match start.
-        this.indexStart = match.index! - 2;
+        this.indexStart = match.index!;
         this.indexEnd = findObjectEnd(this.memo, this.indexStart);
         if (this.indexStart < 0 || this.indexEnd < 0) {
           // This will intentionally error, and provide helpful info.
