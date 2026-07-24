@@ -1,47 +1,16 @@
 import { analyzeRow } from "./analyze-row";
-import { formatCurrency, getAccountCurrency, Metadata } from "./ynab-conversion";
-
-function handleCellRemoval(mutations: MutationRecord[]) {
-  for (const mutation of mutations) {
-    const { nextSibling } = mutation;
-    if (!nextSibling) continue;
-
-    const { parentElement } = nextSibling;
-    if (!parentElement) continue;
-
-    const rowDOM = parentElement.closest(".ynab-grid-body-row");
-    if (!rowDOM) continue;
-
-    const analysis = analyzeRow(rowDOM);
-    if (!analysis.metadata) continue;
-
-    renderMetadata(analysis.metadata, false);
-
-    //console.log('removed node in', analyzeRow(rowDOM), rowDOM);
-  }
-}
-
-export function attachRowObservers(metadata: Metadata) {
-  const { rowId } = metadata;
-  const gridCell = document.querySelector(
-    `.ynab-grid-body-row[data-row-id="${rowId}"] .ynab-grid-cell-inflow`,
-  );
-
-  if (!gridCell) return;
-
-  const observer = new MutationObserver(handleCellRemoval);
-  buffer.push(observer);
-  observer.observe(gridCell, { childList: true });
-  console.log("made observer");
-}
+import {
+  AccountInfo,
+  accountStorage,
+  formatCurrency,
+  Metadata,
+} from "./ynab-conversion";
 
 export function renderMetadata(
   metadata: Metadata,
-  isAttachingObservers: boolean
+  isAttachingObservers: boolean,
 ) {
-  const { foreignAmount, rowId, outflow, inflow } = metadata;
-
-  if (isAttachingObservers) attachRowObservers(metadata);
+  const { inflow, outflow, rowId, value1, value2, hash1, hash2 } = metadata;
 
   const rowDOM = document.querySelector(
     `.ynab-grid-body-row[data-row-id="${rowId}"]`,
@@ -58,9 +27,46 @@ export function renderMetadata(
   inflowDOM.textContent = "42069";
   outflowDOM.textContent = "42069";
 
-  if (foreignAmount !== -1) {
-    const accountCurrency = getAccountCurrency();
-    const stringified = accountCurrency?.symbol + formatCurrency(foreignAmount);
+  const current = accountStorage.getCurrent();
+
+  let finalAccount: AccountInfo | undefined = undefined;
+  let finalValue: number | undefined = undefined;
+
+  if (current) {
+    if (hash1 === current.hash) {
+      finalAccount = current;
+      finalValue = value1;
+    } else if (hash2 === current.hash) {
+      finalAccount = current;
+      finalValue = value2;
+    }
+  }
+  if (!finalAccount) {
+    if (!hash2 || value2 === undefined) {
+      finalAccount = accountStorage.getFromHash(hash1);
+      finalValue = value1;
+    } else if (outflow > 0) {
+      finalAccount = accountStorage.getFromHash(hash2);
+      finalValue = value2;
+    } else if (inflow > 0) {
+      finalAccount = accountStorage.getFromHash(hash1);
+      finalValue = value2;
+    }
+  }
+
+  if (!finalAccount) {
+    //throw Error(`Could not find an account associated with ${JSON.stringify(metadata)}`);
+  }
+
+  if (isAttachingObservers) mutationBuffer.create(rowId);
+
+  let value: number;
+
+  console.log("account", finalAccount);
+
+  if (finalValue !== undefined && finalValue !== -1) {
+    const stringified =
+      finalAccount?.currency?.symbol + formatCurrency(finalValue);
     inflowDOM.textContent = stringified;
     outflowDOM.textContent = stringified;
     //console.log('we can do a currency replacement!');
@@ -70,7 +76,6 @@ export function renderMetadata(
 const buffer: MutationObserver[] = [];
 
 class RowMutationBuffer {
-
   bufferMap: Map<string, MutationObserver>;
 
   /**
@@ -80,15 +85,22 @@ class RowMutationBuffer {
     this.bufferMap = new Map();
   }
 
-  /** This dictates how to handle whenever an observer event is called. */
+  /**
+   * This dispatches when an observer event is triggered, particularly
+   * looking for when nodes are removed from the DOM.
+   */
   static mutationCallback(mutations: MutationRecord[]) {
+    // Look for cells that are killed.
     for (const mutation of mutations) {
+      // This killed cell is outlived by its neighboring survivor.
       const { nextSibling } = mutation;
       if (!nextSibling) continue;
 
+      // We grab the parent of the living cell...
       const { parentElement } = nextSibling;
       if (!parentElement) continue;
 
+      // ...then ascend upwards until we hit the row DOM.
       const rowDOM = parentElement.closest(".ynab-grid-body-row");
       if (!rowDOM) continue;
 
@@ -96,7 +108,6 @@ class RowMutationBuffer {
       if (!analysis.metadata) continue;
 
       renderMetadata(analysis.metadata, false);
-
     }
   }
 
@@ -111,7 +122,7 @@ class RowMutationBuffer {
       if (observer) observer.disconnect();
       this.bufferMap.delete(rowId);
       return;
-    };
+    }
 
     if (!observer) {
       observer = new MutationObserver(RowMutationBuffer.mutationCallback);
@@ -127,3 +138,5 @@ class RowMutationBuffer {
     this.bufferMap.clear();
   }
 }
+
+export const mutationBuffer = new RowMutationBuffer();

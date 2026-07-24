@@ -1,6 +1,4 @@
-import {
-  Metadata,
-} from "./ynab-conversion";
+import { Metadata } from "./ynab-conversion";
 
 /** Returns if a node is of type. `HTMLDivElement` */
 export function isHTMLDiv(node: Node): node is HTMLDivElement {

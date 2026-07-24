@@ -1,7 +1,11 @@
-import { Metadata, parseCurrency, parseDate } from "./ynab-conversion";
-import { getAccountCurrency } from "./ynab-conversion/account-title";
+import {
+  accountStorage,
+  Metadata,
+  parseCurrency,
+  parseDate,
+} from "./ynab-conversion";
 import { isHTMLDiv, analyzeRow } from "./analyze-row";
-import { renderMetadata } from "./render-row"
+import { renderMetadata } from "./render-row";
 
 /** Observer meant to be executed as soon as `document.body` exists. */
 export const observerBody = new MutationObserver((mutations) => {
@@ -23,7 +27,7 @@ export const observerBody = new MutationObserver((mutations) => {
             )) {
               const { metadata } = analyzeRow(row);
               if (!metadata) return;
-              renderMetadata(metadata, row);
+              renderMetadata(metadata, true);
             }
           }, 2000);
 
@@ -38,7 +42,8 @@ export const observerBody = new MutationObserver((mutations) => {
 
 /** Observer meant to be executed as soon as the transaction grid is realized. */
 const observerGrid = new MutationObserver((mutations) => {
-  const accountCurrency = getAccountCurrency();
+  const account = accountStorage.getCurrent();
+  const readable = account?.currency?.readable;
 
   const inputCells: HTMLInputElement[][] = [];
   let buttonCancel: HTMLButtonElement | null = null;
@@ -59,7 +64,7 @@ const observerGrid = new MutationObserver((mutations) => {
     const buttonProski = document.createElement("button");
     buttonProski.classList.add(...buttonCancel.classList);
     buttonProski.type = "button";
-    buttonProski.textContent = `Convert from ${accountCurrency?.readable}`;
+    buttonProski.textContent = `Convert from ${readable}`;
     buttonProski.addEventListener("click", () => {
       console.ynab("clicked proski");
     });
