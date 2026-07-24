@@ -1,25 +1,30 @@
 import { parseCurrency } from "./currency";
 import { parseDate } from "./date";
 
-const METADATA_MEMO_KEY = "DATA";
-const VALUE1_KEY = "X";
-const HASH1_KEY = "x";
-const VALUE2_KEY = "Y";
-const HASH2_KEY = "y";
+const METADATA_MEMO_KEY = "§";
+const BANK_OUTFLOW_KEY = "O";
+const RATE_OUTFLOW_KEY = "o";
+const BANK_INFLOW_KEY = "I";
+const RATE_INFLOW_KEY = "i";
 
-const INNER_KEYS = [VALUE1_KEY, HASH1_KEY, VALUE2_KEY, HASH2_KEY];
+const INNER_KEYS = [
+  BANK_OUTFLOW_KEY,
+  RATE_OUTFLOW_KEY,
+  BANK_INFLOW_KEY,
+  RATE_INFLOW_KEY,
+];
 
 type MetadataMemoStruct = {
   /** Denotes that this is a metadata object. */
   [METADATA_MEMO_KEY]: {
-    /** The first value in its foreign currency. */
-    [VALUE1_KEY]: number;
-    /** The hash account ID of the first value. */
-    [HASH1_KEY]: string;
-    /** The second value in its foreign currency. */
-    [VALUE2_KEY]?: number;
-    /** The hash account ID of the second value. */
-    [HASH2_KEY]?: string;
+    /** The value that matches your bank statement for the outflow. */
+    [BANK_OUTFLOW_KEY]?: number;
+    /** The value used to cross-examine the outflow with the actual exchange rate. */
+    [RATE_OUTFLOW_KEY]?: number;
+    /** The value that matches your bank statement for the inflow. */
+    [BANK_INFLOW_KEY]?: number;
+    /** The value used to cross-examine the inflow with the actual exchange rate. */
+    [RATE_INFLOW_KEY]?: number;
   };
 };
 
@@ -41,18 +46,10 @@ function isValidMetadataMemo(
     if (!INNER_KEYS.includes(key)) return false;
   }
 
-  if (typeof objectInner[VALUE1_KEY] !== "number") return false;
-  if (
-    objectInner[VALUE2_KEY] !== undefined &&
-    typeof objectInner[VALUE2_KEY] !== "number"
-  )
-    return false;
-  if (typeof objectInner[HASH1_KEY] !== "string") return false;
-  if (
-    objectInner[HASH2_KEY] !== undefined &&
-    typeof objectInner[HASH2_KEY] !== "string"
-  )
-    return false;
+  for (const key of keysInner) {
+    const value = objectInner[key];
+    if (value !== undefined && typeof value !== "number") return false;
+  }
 
   return true;
 }
@@ -152,10 +149,7 @@ export class Metadata {
 
     // If we failed to parse metadata, we must start anew.
     this.metadata = {
-      [METADATA_MEMO_KEY]: {
-        [VALUE1_KEY]: -1,
-        [HASH1_KEY]: "",
-      },
+      [METADATA_MEMO_KEY]: {},
     };
   }
 
@@ -163,31 +157,31 @@ export class Metadata {
     return JSON.stringify(this.metadata, null, 0);
   }
 
-  get value1(): number {
-    return this.metadata[METADATA_MEMO_KEY][VALUE1_KEY];
+  get bankOutflow(): number | undefined {
+    return this.metadata[METADATA_MEMO_KEY][BANK_OUTFLOW_KEY];
   }
-  set value1(amount: number) {
-    this.metadata[METADATA_MEMO_KEY][VALUE1_KEY] = amount;
-  }
-
-  get value2(): number | undefined {
-    return this.metadata[METADATA_MEMO_KEY][VALUE2_KEY];
-  }
-  set value2(amount: number) {
-    this.metadata[METADATA_MEMO_KEY][VALUE2_KEY] = amount;
+  set bankOutflow(amount: number) {
+    this.metadata[METADATA_MEMO_KEY][BANK_OUTFLOW_KEY] = amount;
   }
 
-  get hash1(): string {
-    return this.metadata[METADATA_MEMO_KEY][HASH1_KEY];
+  get rateOutflow(): number | undefined {
+    return this.metadata[METADATA_MEMO_KEY][RATE_OUTFLOW_KEY];
   }
-  set hash1(hash: string) {
-    this.metadata[METADATA_MEMO_KEY][HASH1_KEY] = hash;
+  set rateOutflow(amount: number) {
+    this.metadata[METADATA_MEMO_KEY][RATE_OUTFLOW_KEY] = amount;
   }
 
-  get hash2(): string | undefined {
-    return this.metadata[METADATA_MEMO_KEY][HASH2_KEY];
+  get bankInflow(): number | undefined {
+    return this.metadata[METADATA_MEMO_KEY][BANK_INFLOW_KEY];
   }
-  set hash2(hash: string) {
-    this.metadata[METADATA_MEMO_KEY][HASH2_KEY] = hash;
+  set bankInflow(amount: number) {
+    this.metadata[METADATA_MEMO_KEY][BANK_INFLOW_KEY] = amount;
+  }
+
+  get rateInflow(): number | undefined {
+    return this.metadata[METADATA_MEMO_KEY][BANK_INFLOW_KEY];
+  }
+  set rateInflow(amount: number) {
+    this.metadata[METADATA_MEMO_KEY][BANK_INFLOW_KEY] = amount;
   }
 }

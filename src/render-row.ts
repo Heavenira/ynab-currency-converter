@@ -1,4 +1,5 @@
 import { analyzeRow } from "./analyze-row";
+import { fetchCurrency } from "./fetch-currency";
 import {
   AccountInfo,
   accounts,
@@ -75,48 +76,51 @@ function attachRowObservers(metadata: Metadata) {
  * @param accountName The name of this column, if it is specified.
  * @returns
  */
-function obtainFinal(metadata: Metadata, accountName: string) {
-  const { value1, hash1, value2, hash2, inflow, outflow } = metadata;
-  let finalAccount: AccountInfo | undefined = undefined;
-  let finalValue: number | undefined = undefined;
+async function obtainFinal(metadata: Metadata, accountName: string) {
+  const { inflow, outflow } = metadata;
 
-  let current = accounts.getCurrent();
-  if (!current) current = accounts.getName(accountName);
-  if (!current) return undefined;
+  let account = accounts.getCurrent();
+  if (!account) account = accounts.getName(accountName);
+  if (!account) return undefined;
 
-  // CASE ONE: Is there no metadata existing?
-  if (value1 === -1 || !hash1) {
-    finalAccount = current;
+  let mode: "blank" | "inflow" | "outflow" = "blank";
+  if (inflow > 0) mode = "inflow";
+  if (outflow > 0) mode = "outflow";
+
+  let bank: number | undefined = undefined;
+  let rate: number | undefined = undefined;
+  switch (mode) {
+    case "blank":
+      break;
+    case "inflow":
+      bank = metadata.bankInflow;
+      rate = metadata.rateInflow;
+      break;
+    case "outflow":
+      bank = metadata.bankOutflow;
+      rate = metadata.rateOutflow;
+      break;
   }
 
-  if (!finalAccount) {
-    // CASE TWO: We can compare the metadatas to `current`.
-    if (value2 !== -1 && hash2) {
-      const temp = accounts.getHash(hash2);
-      if (temp?.hash === current.hash) {
-        finalAccount = current;
-        finalValue = value2;
-      }
-    } else if (value1 !== -1 && hash1) {
-      const temp = accounts.getHash(hash1);
-      if (temp?.hash === current.hash) {
-        finalAccount = current;
-        finalValue = value1;
-      }
-    }
+  if (account.currency?.code) {
+    const conversion = await fetchCurrency(
+      "CAD",
+      account.currency.code,
+      metadata.date,
+    );
+
+    const target = conversion.rates[account.currency.code];
+    const given = rate ?? target;
+    const percentError = (Math.abs(given - target) / Math.abs(target)) * 100;
+    rate = target;
+    return {
+      account,
+      bank,
+      rate,
+      mode,
+      percentError,
+    };
   }
-
-  if (!finalValue) {
-    if (inflow !== 0) finalValue = inflow;
-    else if (outflow !== 0) finalValue = outflow;
-  }
-
-  if (!finalAccount || !finalValue) return undefined;
-
-  return {
-    account: finalAccount,
-    value: finalValue,
-  };
 }
 
 /** Takes in metadata and overwrites the present DOM on screen of this metadata. */
@@ -124,7 +128,7 @@ export function renderMetadata(
   metadata: Metadata,
   isAttachingObservers: boolean,
 ) {
-  const { value1, hash1, value2, hash2, rowId, outflow, inflow } = metadata;
+  const { bankOutflow, rowId, outflow, inflow } = metadata;
 
   const rowDOM = document.querySelector(
     `.ynab-grid-body-row[data-row-id="${rowId}"]`,
@@ -148,13 +152,19 @@ export function renderMetadata(
   //inflowDOM.textContent = "42069";
   //outflowDOM.textContent = "42069";
 
-  const final = obtainFinal(metadata, accountDOM?.textContent.trim() ?? "");
-  if (!final) return;
+  obtainFinal(metadata, accountDOM?.textContent.trim() ?? "").then((final) => {
+    if (!final) return;
+    let { account, mode, bank, rate, percentError } = final;
+    if (mode === "blank") return;
 
-  if (value1 !== -1) {
-    const account = accounts.getCurrent();
-    const stringified = final.account.currency?.symbol + formatCurrency(value1);
-    inflowDOM.textContent = stringified;
-    outflowDOM.textContent = stringified;
-  }
+    const dom = mode === "inflow" ? inflowDOM : outflowDOM;
+    const value = mode === "inflow" ? inflow : outflow;
+
+    console.log("got rate", rate);
+    if (!bank) {
+      bank = value * (rate ?? 1.0);
+    }
+    const stringified = account.currency?.symbol + formatCurrency(bank);
+    dom.textContent = stringified;
+  });
 }
