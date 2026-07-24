@@ -1,9 +1,4 @@
-import {
-  accountStorage,
-  Metadata,
-  parseCurrency,
-  parseDate,
-} from "./ynab-conversion";
+import { accountStorage } from "./ynab-conversion";
 import { isHTMLDiv, analyzeRow } from "./analyze-row";
 import { renderMetadata } from "./render-row";
 
@@ -29,7 +24,7 @@ export const observerBody = new MutationObserver((mutations) => {
               if (!metadata) return;
               renderMetadata(metadata, true);
             }
-          }, 2000);
+          }, 1);
 
           observerGrid.observe(gridBody, {
             childList: true,
