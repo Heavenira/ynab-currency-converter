@@ -1,4 +1,4 @@
 export { parseCurrency, formatCurrency, CurrencyFormat } from "./currency";
 export { parseDate, DateFormat } from "./date";
 export { Metadata } from "./metadata-memo";
-export { accountStorage, AccountInfo } from "./accounts";
+export { accounts, AccountInfo } from "./accounts";

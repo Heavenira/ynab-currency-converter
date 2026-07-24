@@ -1,6 +1,6 @@
 import { analyzeRow } from "./analyze-row";
 import {
-  accountStorage,
+  accounts,
   formatCurrency,
   Metadata,
 } from "./ynab-conversion";
@@ -94,7 +94,7 @@ export function renderMetadata(
   outflowDOM.textContent = "42069";
 
   if (value1 !== -1) {
-    const account = accountStorage.getCurrent();
+    const account = accounts.getCurrent();
     const stringified = account?.currency?.symbol + formatCurrency(value1);
     inflowDOM.textContent = stringified;
     outflowDOM.textContent = stringified;

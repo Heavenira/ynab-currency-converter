@@ -32,18 +32,18 @@ export interface AccountInfo {
 }
 
 class Accounts {
-  accounts: AccountInfo[];
+  all: AccountInfo[];
 
   /**
    * Keeps track of all the account information in the browser.
    */
   constructor() {
-    this.accounts = [];
+    this.all = [];
     this.registerAll();
   }
 
   private registerId(accountId: string) {
-    if (this.accounts.find((x) => x.accountId === accountId)) return;
+    if (this.all.find((x) => x.accountId === accountId)) return;
 
     const hash = hashStringToBase36(accountId);
 
@@ -72,7 +72,7 @@ class Accounts {
       }
     }
 
-    this.accounts.push({
+    this.all.push({
       accountId,
       hash,
       name,
@@ -102,16 +102,16 @@ class Accounts {
     if (!match) return;
     const accountId = match[1];
 
-    const account = this.accounts.find((x) => x.accountId === accountId);
+    const account = this.all.find((x) => x.accountId === accountId);
     return account;
   }
 
-  getFromHash(hash: string) {
+  getHash(hash: string) {
     this.registerAll();
 
-    const account = this.accounts.find((x) => x.hash === hash);
+    const account = this.all.find((x) => x.hash === hash);
     return account;
   }
 }
 
-export const accountStorage = new Accounts();
+export const accounts = new Accounts();

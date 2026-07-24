@@ -1,4 +1,4 @@
-import { accountStorage } from "./ynab-conversion";
+import { accounts } from "./ynab-conversion";
 import { isHTMLDiv, analyzeRow } from "./analyze-row";
 import { renderMetadata } from "./render-row";
 
@@ -37,7 +37,7 @@ export const observerBody = new MutationObserver((mutations) => {
 
 /** Observer meant to be executed as soon as the transaction grid is realized. */
 const observerGrid = new MutationObserver((mutations) => {
-  const account = accountStorage.getCurrent();
+  const account = accounts.getCurrent();
   const readable = account?.currency?.readable;
 
   const inputCells: HTMLInputElement[][] = [];
