@@ -27,6 +27,16 @@ export const observerBody = new MutationObserver((mutations) => {
         /** The grid body, containing all the transaction entries. */
         const gridBody = node.querySelector(".ynab-grid-body");
         if (gridBody) {
+          // Handles rows that already exist before the observer attaches.
+          setTimeout(()=> {
+            for (const row of gridBody.querySelectorAll(
+              ":scope > .ynab-grid-body-row",
+            )) {
+              obtainSelectedRowsAndButton(row);
+            }
+          }, 2000);
+          
+
           observerGrid.observe(gridBody, {
             childList: true,
           });
@@ -37,75 +47,62 @@ export const observerBody = new MutationObserver((mutations) => {
 });
 
 /**
- * Grabs the button and rows of the current mutation..
- * @param mutations The mutations that occurred from this observer.
+ * Grabs the button and row of a single added node, if applicable.
+ * @param node The added node to inspect.
  */
-function obtainSelectedRowsAndButton(mutations: MutationRecord[]): {
-  /** These are the input cells of this specific row. */
-  inputCells: HTMLInputElement[][];
-  /** The button to cancel editing this row. */
+function obtainSelectedRowsAndButton(node: Node): {
+  /** The input cells of this specific row, if this node is an editing row. */
+  inputCells: HTMLInputElement[] | null;
+  /** The button to cancel editing this row, if this node contains it. */
   buttonCancel: HTMLButtonElement | null;
+  metadata: Metadata | null;
 } {
-  const inputCells: HTMLInputElement[][] = [];
-  let buttonCancel: HTMLButtonElement | null = null;
-
-  for (const mutation of mutations) {
-    for (const node of mutation.addedNodes) {
-      // Only operate on rows inside of the YNAB grid.
-      if (!isHTMLDiv(node) || !node.classList.contains("ynab-grid-body-row")) {
-        continue;
-      }
-
-      // Adds the input values to the storage array.
-      else if (node.classList.contains("is-editing")) {
-        inputCells.push([
-          ...node.querySelectorAll<HTMLInputElement>("input.ember-text-field"),
-        ]);
-      }
-
-      // Adds the cancel button to the storage array.
-      else if (node.classList.contains("ynab-grid-actions")) {
-        buttonCancel = document.querySelector<HTMLButtonElement>(
-          ".ynab-grid-actions-buttons > button.button-cancel-small",
-        );
-      }
-
-      // Locates the cells which needs a conversion.
-      else if (node.classList.contains("ynab-grid-body-parent")) {
-        const inflowDOM = node.querySelector<HTMLSpanElement>(
-          `.ynab-grid-cell-inflow span.tabular-nums`,
-        );
-        const outflowDOM = node.querySelector<HTMLSpanElement>(
-          `.ynab-grid-cell-outflow span.tabular-nums`,
-        );
-        if (!inflowDOM || !outflowDOM) {
-          console.ynab(
-            "Fatal selector failure for YNAB Currencies. Cannot locate inflow and outflow.",
-          );
-          continue;
-        }
-
-        const getString = (type: string) =>
-          getText(node, `.ynab-grid-cell-${type}`);
-        const date = parseDate(getString("date"));
-        const inflow = parseCurrency(getString("inflow"));
-        const outflow = parseCurrency(getString("outflow"));
-        const metadata = new Metadata(getString("memo"));
-
-        outflowDOM.textContent = "69420";
-        console.ynab({
-          date,
-          inflow,
-          outflow,
-          metadata,
-          inflowDOM,
-          outflowDOM,
-        });
-      }
-    }
+  // Only operate on rows inside of the YNAB grid.
+  if (!isHTMLDiv(node) || !node.classList.contains("ynab-grid-body-row")) {
+    return { inputCells: null, buttonCancel: null, metadata: null };
   }
 
-  return { buttonCancel, inputCells };
+  // Returns the input values of this row.
+  if (node.classList.contains("is-editing")) {
+    return {
+      inputCells: [
+        ...node.querySelectorAll<HTMLInputElement>("input.ember-text-field"),
+      ],
+      buttonCancel: null,
+      metadata: null,
+    };
+  }
+
+  // Returns the cancel button of this row.
+  if (node.classList.contains("ynab-grid-actions")) {
+    return {
+      inputCells: null,
+      buttonCancel: document.querySelector<HTMLButtonElement>(
+        ".ynab-grid-actions-buttons > button.button-cancel-small",
+      ),
+      metadata: null,
+    };
+  }
+
+  const rowId = node.getAttribute("data-row-id");
+  // Locates the cells which needs a conversion.
+  if (node.classList.contains("ynab-grid-body-parent") && rowId) {
+
+    const getString = (type: string) =>
+      getText(node, `.ynab-grid-cell-${type}`);
+
+    const metadata = new Metadata({
+      date: getString("date"),
+      inflow: getString("inflow"),
+      outflow: getString("outflow"),
+      memo: getString("memo"),
+      rowId,
+    });
+
+    return { inputCells: null, buttonCancel: null, metadata };
+  }
+
+  return { inputCells: null, buttonCancel: null, metadata: null };
 }
 
 /** Observer meant to be executed as soon as the transaction grid is realized. */
@@ -115,20 +112,34 @@ const observerGrid = new MutationObserver((mutations) => {
 
   const currency = parseAccountTitle(title);
 
-  const row = obtainSelectedRowsAndButton(mutations);
+  const inputCells: HTMLInputElement[][] = [];
+  let buttonCancel: HTMLButtonElement | null = null;
+  let metadata: Metadata | null = null;
 
-  if (!row.buttonCancel) return;
+  for (const mutation of mutations) {
+    for (const node of mutation.addedNodes) {
+      const row = obtainSelectedRowsAndButton(node);
+      if (row.inputCells) inputCells.push(row.inputCells);
+      if (row.buttonCancel) buttonCancel = row.buttonCancel;
+      if (row.metadata) {
+        metadata = row.metadata;
+        console.ynab("ezra", metadata);
+      }
+    }
+  }
+
+  if (!buttonCancel) return;
 
   /** Button used to convert currency. */
   const buttonProski = document.createElement("button");
-  buttonProski.classList.add(...row.buttonCancel.classList);
+  buttonProski.classList.add(...buttonCancel.classList);
   buttonProski.type = "button";
   buttonProski.textContent = `Convert from ${currency?.readable}`;
   buttonProski.addEventListener("click", () => {
     console.ynab("clicked proski");
   });
 
-  row.buttonCancel.insertAdjacentElement("beforebegin", buttonProski);
+  buttonCancel.insertAdjacentElement("beforebegin", buttonProski);
 });
 
 observerBody.observe(document.body, {

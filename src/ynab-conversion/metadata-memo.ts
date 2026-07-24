@@ -1,4 +1,7 @@
-const METADATA_MEMO_KEY = "memo";
+import { parseCurrency } from "./currency";
+import { parseDate } from "./date";
+
+const METADATA_MEMO_KEY = "md";
 const FOREIGN_AMOUNT_KEY = "fa";
 
 type MetadataMemoStruct = {
@@ -68,27 +71,49 @@ export class Metadata {
   /** The ending index of the `}` character that ends the JSON. */
   private indexEnd: number;
 
+  /** The date of this transaction. */
+  date;
+  /** The inflow of this transaction. */
+  inflow;
+  /** The outflow of this transaction. */
+  outflow;
+  /** The YNAB row ID used to point to this row. */
+  rowId: string;
+
   /**
    * Creates a metadata object
    */
-  constructor(memo: string) {
-    this.memo = memo;
+  constructor(input: {
+    date: string;
+    memo: string;
+    inflow: string;
+    outflow: string;
+    rowId: string;
+  }) {
+    this.date = parseDate(input.date);
+    this.memo = input.memo;
+    this.inflow = parseCurrency(input.inflow);
+    this.outflow = parseCurrency(input.outflow);
+    this.rowId = input.rowId;
     this.indexStart = -1;
     this.indexEnd = -1;
+
     let temp: MetadataMemoStruct | undefined = undefined;
 
     try {
       // Now let's identify the metadata that exists in this column.
-      const match = memo.match(METADATA_MEMO_KEY);
+      const match = this.memo.match(METADATA_MEMO_KEY);
       if (match) {
         // The `{` character starts two units before the match start.
         this.indexStart = match.index! - 2;
-        this.indexEnd = findObjectEnd(memo, this.indexStart);
+        this.indexEnd = findObjectEnd(this.memo, this.indexStart);
         if (this.indexStart < 0 || this.indexEnd < 0) {
           // This will intentionally error, and provide helpful info.
-          temp = JSON.parse(memo.slice(this.indexStart));
+          temp = JSON.parse(this.memo.slice(this.indexStart));
         } else {
-          temp = JSON.parse(memo.slice(this.indexStart, this.indexEnd + 1));
+          temp = JSON.parse(
+            this.memo.slice(this.indexStart, this.indexEnd + 1),
+          );
         }
       }
 
@@ -97,7 +122,7 @@ export class Metadata {
         return;
       }
     } catch (error) {
-      console.ynab("Failed to parse memo.", { memo, error });
+      console.ynab("Failed to parse memo.", { memo: this.memo, error });
     }
 
     // If we failed to parse metadata, we must start anew.
