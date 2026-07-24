@@ -153,7 +153,16 @@ export class Metadata {
   }
 
   stringify() {
-    return JSON.stringify(this.metadata, null, 0);
+    const parsed = JSON.stringify(this.metadata, null, 0);
+
+    if (this.indexStart < this.indexEnd) {
+      return (
+        this.memo.slice(0, this.indexStart) +
+        parsed +
+        this.memo.slice(this.indexEnd)
+      );
+    }
+    return this.memo + " " + parsed;
   }
 
   get bankOutflow(): number | undefined {

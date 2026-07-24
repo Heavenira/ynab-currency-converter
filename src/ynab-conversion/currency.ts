@@ -22,7 +22,7 @@ function getCurrencyFormat() {
  * @param amount The stringified value from YNAB.
  */
 export function parseCurrency(amount: string): number {
-  if (!amount) throw Error("Failed to parse empty amount.");
+  if (!amount) amount = "0";
 
   // Deletes any symbols.
   for (const currency of CURRENCY_SYMBOLS) {

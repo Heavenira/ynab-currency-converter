@@ -2,6 +2,7 @@ import { accounts, parseDate } from "./ynab-conversion";
 import { isHTMLDiv, analyzeRow, AnalysisResult } from "./analyze-row";
 import { renderMetadata } from "./render-row";
 import { getCurrencyRate } from "./convert-currency";
+import { renderButton, RenderButtonPointers } from "./render-button";
 
 /** Observer meant to be executed as soon as `document.body` exists. */
 export const observerBody = new MutationObserver((mutations) => {
@@ -39,62 +40,62 @@ export const observerBody = new MutationObserver((mutations) => {
 /** Observer meant to be executed as soon as the transaction grid is realized. */
 const observerGrid = new MutationObserver((mutations) => {
   let account = accounts.getCurrent();
-  let date: string | undefined = undefined;
 
-  const inputCells: HTMLInputElement[][] = [];
-  let buttonCancel: HTMLButtonElement | null = null;
-  let firstAnalysis: AnalysisResult | undefined = undefined;
+  const pointers: Partial<RenderButtonPointers> = {};
+
+  const keysPointer: (keyof RenderButtonPointers)[] = [
+    "cancelButton",
+    "date",
+    "memo",
+    "inflow",
+    "outflow",
+  ];
 
   for (const mutation of mutations) {
     for (const node of mutation.addedNodes) {
+      if (!isHTMLDiv(node)) continue;
+
       const analysis = analyzeRow(node);
 
-      if (!firstAnalysis) firstAnalysis = analysis;
       if (analysis.inputCells) {
-        inputCells.push(analysis.inputCells);
+        const selectInput = (selector: string) =>
+          analysis.inputCells?.find((x) => x.closest(selector));
 
         // If there is no current account, we can locate it via the input cells
         if (!account) {
-          const textField = analysis.inputCells.find((x) =>
-            x.parentElement!.classList.contains("ynab-grid-cell-accountName"),
-          );
-          if (textField) account = accounts.getName(textField.value.trim());
+          const input = selectInput(".ynab-grid-cell-accountName");
+          if (input) account = accounts.getName(input.value.trim());
         }
 
-        if (!date) {
-          const textField = analysis.inputCells.find((x) =>
-            x.parentElement!.classList.contains("ynab-grid-cell-date"),
-          );
-          if (textField) date = textField.value.trim();
+        if (!pointers.date) {
+          const input = selectInput(".ynab-grid-cell-date");
+          if (input) pointers.date = input;
+        }
+
+        if (!pointers.memo) {
+          const input = selectInput(".ynab-grid-cell-memo");
+          if (input) pointers.memo = input;
+        }
+
+        if (!pointers.inflow) {
+          const input = selectInput(".ynab-grid-cell-inflow");
+          if (input) pointers.inflow = input;
+        }
+
+        if (!pointers.outflow) {
+          const input = selectInput(".ynab-grid-cell-outflow");
+          if (input) pointers.outflow = input;
         }
       }
-      if (analysis.buttonCancel) buttonCancel = analysis.buttonCancel;
+      if (analysis.buttonCancel) pointers.cancelButton = analysis.buttonCancel;
       if (analysis.metadata) {
         renderMetadata(analysis.metadata, true);
       }
     }
   }
 
-  const readable = account?.currency?.readable;
-
-  if (buttonCancel && firstAnalysis && date) {
-    const { metadata } = firstAnalysis;
-
-    /** Button used to convert currency. */
-    const buttonProski = document.createElement("button");
-    buttonProski.classList.add(...buttonCancel.classList);
-    buttonProski.type = "button";
-    buttonProski.textContent = `Convert from ${readable}`;
-    buttonProski.addEventListener("click", async () => {
-      const currency = await getCurrencyRate(
-        parseDate(date),
-        account?.currency?.code,
-      );
-      console.ynab("clicked proski");
-      await navigator.clipboard.writeText(currency.toString());
-    });
-
-    buttonCancel.insertAdjacentElement("beforebegin", buttonProski);
+  if (account && keysPointer.every((key) => pointers[key])) {
+    renderButton(account, "", pointers as Required<typeof pointers>);
   }
 });
 
