@@ -2,13 +2,24 @@ import { parseCurrency } from "./currency";
 import { parseDate } from "./date";
 
 const METADATA_MEMO_KEY = "DATA";
-const FOREIGN_AMOUNT_KEY = "fa";
+const VALUE1_KEY = "X";
+const HASH1_KEY = "x";
+const VALUE2_KEY = "Y";
+const HASH2_KEY = "y";
+
+const INNER_KEYS = [VALUE1_KEY, HASH1_KEY, VALUE2_KEY, HASH2_KEY];
 
 type MetadataMemoStruct = {
   /** Denotes that this is a metadata object. */
   [METADATA_MEMO_KEY]: {
-    /** The amount to display of the foreign currency. */
-    [FOREIGN_AMOUNT_KEY]: number;
+    /** The first value in its foreign currency. */
+    [VALUE1_KEY]: number;
+    /** The hash account ID of the first value. */
+    [HASH1_KEY]: string;
+    /** The second value in its foreign currency. */
+    [VALUE2_KEY]?: number;
+    /** The hash account ID of the second value. */
+    [HASH2_KEY]?: string;
   };
 };
 
@@ -24,10 +35,25 @@ function isValidMetadataMemo(
   const objectInner = metadata[keyMain as keyof object];
   if (typeof objectInner !== "object" || objectInner === null) return false;
   const keysInner = Object.keys(objectInner);
-  if (keysInner.length !== 1) return false;
-  if (!keysInner.includes(FOREIGN_AMOUNT_KEY)) return false;
-  const foreignAmount = objectInner[FOREIGN_AMOUNT_KEY];
-  if (typeof foreignAmount !== "number") return false;
+  if (keysInner.length < 2) return false;
+
+  for (const key of keysInner) {
+    if (!INNER_KEYS.includes(key)) return false;
+  }
+
+  if (typeof objectInner[VALUE1_KEY] !== "number") return false;
+  if (
+    objectInner[VALUE2_KEY] !== undefined &&
+    typeof objectInner[VALUE2_KEY] !== "number"
+  )
+    return false;
+  if (typeof objectInner[HASH1_KEY] !== "string") return false;
+  if (
+    objectInner[HASH2_KEY] !== undefined &&
+    typeof objectInner[HASH2_KEY] !== "string"
+  )
+    return false;
+
   return true;
 }
 
@@ -127,7 +153,8 @@ export class Metadata {
     // If we failed to parse metadata, we must start anew.
     this.metadata = {
       [METADATA_MEMO_KEY]: {
-        [FOREIGN_AMOUNT_KEY]: -1,
+        [VALUE1_KEY]: -1,
+        [HASH1_KEY]: "",
       },
     };
   }
@@ -136,11 +163,31 @@ export class Metadata {
     return JSON.stringify(this.metadata, null, 0);
   }
 
-  get foreignAmount() {
-    return this.metadata[METADATA_MEMO_KEY][FOREIGN_AMOUNT_KEY];
+  get value1(): number {
+    return this.metadata[METADATA_MEMO_KEY][VALUE1_KEY];
+  }
+  set value1(amount: number) {
+    this.metadata[METADATA_MEMO_KEY][VALUE1_KEY] = amount;
   }
 
-  set foreignAmount(amount: number) {
-    this.metadata[METADATA_MEMO_KEY][FOREIGN_AMOUNT_KEY] = amount;
+  get value2(): number | undefined {
+    return this.metadata[METADATA_MEMO_KEY][VALUE2_KEY];
+  }
+  set value2(amount: number) {
+    this.metadata[METADATA_MEMO_KEY][VALUE2_KEY] = amount;
+  }
+
+  get hash1(): string {
+    return this.metadata[METADATA_MEMO_KEY][HASH1_KEY];
+  }
+  set hash1(hash: string) {
+    this.metadata[METADATA_MEMO_KEY][HASH1_KEY] = hash;
+  }
+
+  get hash2(): string | undefined {
+    return this.metadata[METADATA_MEMO_KEY][HASH2_KEY];
+  }
+  set hash2(hash: string) {
+    this.metadata[METADATA_MEMO_KEY][HASH2_KEY] = hash;
   }
 }

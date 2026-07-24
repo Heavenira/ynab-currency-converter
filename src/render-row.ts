@@ -1,5 +1,5 @@
 import { analyzeRow } from "./analyze-row";
-import { formatCurrency, getAccountCurrency, Metadata } from "./ynab-conversion";
+import { accountStorage, formatCurrency, Metadata } from "./ynab-conversion";
 
 function handleCellRemoval(mutations: MutationRecord[]) {
   for (const mutation of mutations) {
@@ -37,9 +37,9 @@ export function attachRowObservers(metadata: Metadata) {
 
 export function renderMetadata(
   metadata: Metadata,
-  isAttachingObservers: boolean
+  isAttachingObservers: boolean,
 ) {
-  const { foreignAmount, rowId, outflow, inflow } = metadata;
+  const { value1, rowId, outflow, inflow } = metadata;
 
   if (isAttachingObservers) attachRowObservers(metadata);
 
@@ -58,9 +58,9 @@ export function renderMetadata(
   inflowDOM.textContent = "42069";
   outflowDOM.textContent = "42069";
 
-  if (foreignAmount !== -1) {
-    const accountCurrency = getAccountCurrency();
-    const stringified = accountCurrency?.symbol + formatCurrency(foreignAmount);
+  if (value1 !== -1) {
+    const account = accountStorage.getCurrent();
+    const stringified = account?.currency?.symbol + formatCurrency(value1);
     inflowDOM.textContent = stringified;
     outflowDOM.textContent = stringified;
     //console.log('we can do a currency replacement!');
@@ -70,7 +70,6 @@ export function renderMetadata(
 const buffer: MutationObserver[] = [];
 
 class RowMutationBuffer {
-
   bufferMap: Map<string, MutationObserver>;
 
   /**
@@ -96,7 +95,6 @@ class RowMutationBuffer {
       if (!analysis.metadata) continue;
 
       renderMetadata(analysis.metadata, false);
-
     }
   }
 
@@ -111,7 +109,7 @@ class RowMutationBuffer {
       if (observer) observer.disconnect();
       this.bufferMap.delete(rowId);
       return;
-    };
+    }
 
     if (!observer) {
       observer = new MutationObserver(RowMutationBuffer.mutationCallback);
