@@ -1,104 +1,68 @@
 import { parseCurrency } from "./currency";
 import { parseDate } from "./date";
 
-const METADATA_MEMO_KEY = "DATA";
-const BANK_OUTFLOW_KEY = "O";
-const RATE_OUTFLOW_KEY = "o";
-const BANK_INFLOW_KEY = "I";
-const RATE_INFLOW_KEY = "i";
+const REGEX_INFLOW =
+  /\[(?:inflow)(?::?\s*|\s*=\s*)(\d+(?:\.\d+)?)(?:@(\d+(?:\.\d+)?))?\]/i;
+const REGEX_OUTFLOW =
+  /\[(?:outflow)(?::?\s*|\s*=\s*)(\d+(?:\.\d+)?)(?:@(\d+(?:\.\d+)?))?\]/i;
 
-const INNER_KEYS = [
-  BANK_OUTFLOW_KEY,
-  RATE_OUTFLOW_KEY,
-  BANK_INFLOW_KEY,
-  RATE_INFLOW_KEY,
-];
+function applyFlowMatch(memo: string, regex: RegExp, flow: FlowMetadata): void {
+  const match = memo.match(regex);
+  if (!match) return;
 
-type MetadataMemoStruct = {
-  /** Denotes that this is a metadata object. */
-  [METADATA_MEMO_KEY]: {
-    /** The value that matches your bank statement for the outflow. */
-    [BANK_OUTFLOW_KEY]?: number;
-    /** The value used to cross-examine the outflow with the actual exchange rate. */
-    [RATE_OUTFLOW_KEY]?: number;
-    /** The value that matches your bank statement for the inflow. */
-    [BANK_INFLOW_KEY]?: number;
-    /** The value used to cross-examine the inflow with the actual exchange rate. */
-    [RATE_INFLOW_KEY]?: number;
-  };
-};
-
-function isValidMetadataMemo(
-  metadata: unknown,
-): metadata is MetadataMemoStruct {
-  if (typeof metadata !== "object" || metadata === null) return false;
-  const keysMain = Object.keys(metadata);
-  if (keysMain.length !== 1) return false;
-  const keyMain = keysMain[0];
-  if (keyMain !== METADATA_MEMO_KEY) return false;
-
-  const objectInner = metadata[keyMain as keyof object];
-  if (typeof objectInner !== "object" || objectInner === null) return false;
-  const keysInner = Object.keys(objectInner);
-
-  for (const key of keysInner) {
-    if (!INNER_KEYS.includes(key)) return false;
+  flow.bankValue = parseFloat(match[1]);
+  if (match[2]) {
+    flow.driftPercent = parseFloat(match[2]);
   }
-
-  for (const key of keysInner) {
-    const value = objectInner[key];
-    if (value !== undefined && typeof value !== "number") return false;
-  }
-
-  return true;
 }
 
-/**
- * Scans `text` starting at the opening `{` located at `indexStart` and
- * returns the index just past its matching closing `}`, honoring nested
- * braces and quoted strings (so braces inside string values don't confuse it).
- * Returns -1 if the object is never closed.
- */
-function findObjectEnd(text: string, indexStart: number): number {
-  let depth = 0;
-  let quote: string | null = null;
+function formatFlow(
+  label: string,
+  output: string,
+  regex: RegExp,
+  flow: FlowMetadata,
+): string {
+  if (flow.bankValue === undefined) return output;
 
-  for (let i = indexStart; i < text.length; i++) {
-    const char = text[i];
+  const drift = flow.driftPercent !== undefined ? `@${flow.driftPercent}` : "";
+  const formatted = `[${label} ${flow.bankValue}${drift}]`;
 
-    if (quote) {
-      if (char === "\\") i++;
-      else if (char === quote) quote = null;
-      continue;
-    }
-
-    if (char === '"' || char === "'") quote = char;
-    else if (char === "{") depth++;
-    else if (char === "}") {
-      depth--;
-      if (depth === 0) return i + 1;
-    }
+  if (regex.test(output)) {
+    return output.replace(regex, formatted);
   }
+  return output.trimEnd() + ` ${formatted}`;
+}
 
-  return -1;
+interface FlowMetadata {
+  /** The number reported directly by YNAB. */
+  ynab: number;
+  /**
+   * The number that is reported on the bank account in
+   * the foreign currency. Lives inside of the memo.
+   */
+  bankValue?: number;
+  /**
+   * Nudges the conversion back to stability.
+   * (ie. if a transaction took many days to clear, or
+   * you are unhappy with what the API expresses, this
+   * allows you to bring it back to normal)
+   * @example 1.025
+   */
+  driftPercent?: number;
 }
 
 export class Metadata {
-  /** The structured object of the metadata. */
-  private metadata: MetadataMemoStruct;
   /** Pointer to the original memo used to initialize this metadata. */
   private memo: string;
-  /** The starting index of the `{` character that begins the JSON. */
-  private indexStart: number;
-  /** The ending index of the `}` character that ends the JSON. */
-  private indexEnd: number;
 
   /** The date of this transaction. */
   date;
+
   /** The inflow of this transaction. */
-  inflow;
+  inflow: FlowMetadata;
   /** The outflow of this transaction. */
-  outflow;
+  outflow: FlowMetadata;
+
   /** The YNAB row ID used to point to this row. */
   rowId: string;
 
@@ -114,82 +78,22 @@ export class Metadata {
   }) {
     this.date = parseDate(input.date);
     this.memo = input.memo;
-    this.inflow = parseCurrency(input.inflow);
-    this.outflow = parseCurrency(input.outflow);
-    this.rowId = input.rowId;
-    this.indexStart = -1;
-    this.indexEnd = -1;
-
-    let temp: MetadataMemoStruct | undefined = undefined;
-
-    try {
-      // Now let's identify the metadata JSON that exists in this row.
-      const match = this.memo.match('{"' + METADATA_MEMO_KEY + '":');
-      if (match) {
-        this.indexStart = match.index!;
-        this.indexEnd = findObjectEnd(this.memo, this.indexStart);
-        if (this.indexStart < 0 || this.indexEnd < 0) {
-          // This will intentionally error, and provide helpful info.
-          temp = JSON.parse(this.memo.slice(this.indexStart));
-        } else {
-          temp = JSON.parse(
-            this.memo.slice(this.indexStart, this.indexEnd + 1),
-          );
-        }
-      }
-
-      if (isValidMetadataMemo(temp)) {
-        this.metadata = temp;
-        return;
-      }
-    } catch (error) {
-      console.ynab("Failed to parse memo.", { memo: this.memo, error });
-    }
-
-    // If we failed to parse metadata, we must start anew.
-    this.metadata = {
-      [METADATA_MEMO_KEY]: {},
+    this.inflow = {
+      ynab: parseCurrency(input.inflow),
     };
+    this.outflow = {
+      ynab: parseCurrency(input.outflow),
+    };
+    this.rowId = input.rowId;
+
+    applyFlowMatch(this.memo, REGEX_INFLOW, this.inflow);
+    applyFlowMatch(this.memo, REGEX_OUTFLOW, this.outflow);
   }
 
   stringify() {
-    const parsed = JSON.stringify(this.metadata, null, 0);
-
-    if (this.indexStart < this.indexEnd) {
-      return (
-        this.memo.slice(0, this.indexStart) +
-        parsed +
-        this.memo.slice(this.indexEnd)
-      );
-    }
-    return this.memo + " " + parsed;
-  }
-
-  get bankOutflow(): number | undefined {
-    return this.metadata[METADATA_MEMO_KEY][BANK_OUTFLOW_KEY];
-  }
-  set bankOutflow(amount: number) {
-    this.metadata[METADATA_MEMO_KEY][BANK_OUTFLOW_KEY] = amount;
-  }
-
-  get rateOutflow(): number | undefined {
-    return this.metadata[METADATA_MEMO_KEY][RATE_OUTFLOW_KEY];
-  }
-  set rateOutflow(amount: number) {
-    this.metadata[METADATA_MEMO_KEY][RATE_OUTFLOW_KEY] = amount;
-  }
-
-  get bankInflow(): number | undefined {
-    return this.metadata[METADATA_MEMO_KEY][BANK_INFLOW_KEY];
-  }
-  set bankInflow(amount: number) {
-    this.metadata[METADATA_MEMO_KEY][BANK_INFLOW_KEY] = amount;
-  }
-
-  get rateInflow(): number | undefined {
-    return this.metadata[METADATA_MEMO_KEY][RATE_INFLOW_KEY];
-  }
-  set rateInflow(amount: number) {
-    this.metadata[METADATA_MEMO_KEY][RATE_INFLOW_KEY] = amount;
+    let output = this.memo;
+    output = formatFlow("Inflow", output, REGEX_INFLOW, this.inflow);
+    output = formatFlow("Outflow", output, REGEX_OUTFLOW, this.outflow);
+    return output;
   }
 }

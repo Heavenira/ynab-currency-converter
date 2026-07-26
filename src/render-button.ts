@@ -1,4 +1,5 @@
 import { getCurrencyRate } from "./convert-currency";
+import { simulateTyping } from "./helpers";
 import { AccountInfo, Metadata } from "./ynab-conversion";
 
 /** The DOM pointers that the button needs to modify the DOM. */
@@ -8,23 +9,6 @@ export interface RenderButtonPointers {
   date: HTMLInputElement;
   inflow: HTMLInputElement;
   outflow: HTMLInputElement;
-}
-
-/** Simulates a user typing `text` into `input`, dispatching an `input` event per character. */
-function simulateTyping(input: HTMLInputElement, text: string) {
-  const nativeValueSetter = Object.getOwnPropertyDescriptor(
-    window.HTMLInputElement.prototype,
-    "value",
-  )!.set!;
-
-  nativeValueSetter.call(input, "");
-
-  for (const char of text) {
-    nativeValueSetter.call(input, input.value + char);
-    input.dispatchEvent(
-      new InputEvent("input", { bubbles: true, data: char, inputType: "insertText" }),
-    );
-  }
 }
 
 export function renderButton(
@@ -55,11 +39,11 @@ export function renderButton(
       account.currency?.code,
     );
 
-    if (metadata.inflow > 0) {
-      metadata.rateInflow = currency;
+    if (metadata.inflow.ynab > 0) {
+      metadata.inflow.bankValue = currency;
     }
-    if (metadata.outflow > 0) {
-      metadata.rateOutflow = currency;
+    if (metadata.outflow.ynab > 0) {
+      metadata.outflow.bankValue = currency;
     }
 
     const stringified = metadata.stringify().trim();
@@ -68,7 +52,6 @@ export function renderButton(
     await navigator.clipboard.writeText(stringified);
     button.textContent = "Copied!";
 
-    
     simulateTyping(pointers.memo, stringified);
   });
 

@@ -1,12 +1,5 @@
+import { isHTMLDiv } from "./helpers";
 import { Metadata } from "./ynab-conversion";
-
-/** Returns if a node is of type. `HTMLDivElement` */
-export function isHTMLDiv(node: Node): node is HTMLDivElement {
-  return (
-    node.nodeType === Node.ELEMENT_NODE &&
-    (node as HTMLElement).tagName === "DIV"
-  );
-}
 
 /** Query selects a node element and retrieves its text content. */
 export function getText(node: HTMLElement, selector: string) {

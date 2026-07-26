@@ -1,5 +1,6 @@
 import { analyzeRow } from "./analyze-row";
 import { getCurrencyRate } from "./convert-currency";
+import { percentError } from "./helpers";
 import {
   AccountInfo,
   accounts,
@@ -73,54 +74,65 @@ function attachRowObservers(metadata: Metadata) {
 /**
  * Obtains the value that will be used for the calculation.
  * @param metadata The metadata that was already retrieved.
- * @param accountName The name of this column, if it is specified.
- * @returns
+ * @param accountName The name of this account, if it is specified.
  */
 async function obtainFinal(metadata: Metadata, accountName: string) {
-  const { inflow, outflow, bankInflow, bankOutflow, rateInflow, rateOutflow } =
-    metadata;
+  const { inflow, outflow } = metadata;
 
   let account = accounts.getCurrent();
   if (!account) account = accounts.getName(accountName);
   if (!account) return undefined;
 
   let mode: "blank" | "inflow" | "outflow" = "blank";
-  if (inflow > 0) mode = "inflow";
-  if (outflow > 0) mode = "outflow";
+  let valueYNAB: number | undefined = undefined;
+  if (inflow.ynab > 0) {
+    valueYNAB = inflow.ynab;
+    mode = "inflow";
+  } else if (outflow.ynab > 0) {
+    valueYNAB = outflow.ynab;
+    mode = "outflow";
+  }
 
-  let bankGiven: number | undefined = undefined;
-  let rateGiven: number | undefined = undefined;
+  if (valueYNAB === undefined) return;
+
+  /** The number to display of this currency. */
+  let valueDisplay: number | undefined = undefined;
+  let driftPercent: number | undefined = undefined;
   switch (mode) {
     case "blank":
       break;
     case "inflow":
-      bankGiven = bankInflow;
-      rateGiven = rateInflow;
+      ({ bankValue: valueDisplay, driftPercent } = inflow);
       break;
     case "outflow":
-      bankGiven = bankOutflow;
-      rateGiven = rateOutflow;
+      ({ bankValue: valueDisplay, driftPercent } = outflow);
       break;
   }
 
-  if (account.currency?.code) {
-    const conversion = await getCurrencyRate(
-      metadata.date,
-      account.currency.code,
-    );
-
-    const target = conversion;
-    const given = rateGiven ?? conversion;
-    const percentError = (Math.abs(given - target) / Math.abs(target)) * 100;
-
-    return {
-      account,
-      bank: bankGiven,
-      rate: given,
-      mode,
-      percentError,
-    };
+  let valueActual = valueDisplay;
+  if (valueActual !== undefined && driftPercent !== undefined) {
+    valueActual *= driftPercent;
   }
+
+  const rateExpected = await getCurrencyRate(
+    metadata.date,
+    account.currency?.code,
+  );
+
+  const valueExpected = valueYNAB * rateExpected;
+  const rateActual = valueActual ? valueYNAB / valueActual : rateExpected;
+  const error = percentError(rateExpected, rateActual);
+
+  return {
+    account,
+    valueDisplay,
+    valueActual,
+    valueExpected,
+    rateExpected,
+    rateActual,
+    mode,
+    error,
+  };
 }
 
 /** Takes in metadata and overwrites the present DOM on screen of this metadata. */
@@ -128,7 +140,7 @@ export function renderMetadata(
   metadata: Metadata,
   isAttachingObservers: boolean,
 ) {
-  const { rowId, outflow, inflow } = metadata;
+  const { rowId } = metadata;
 
   const rowDOM = document.querySelector(
     `.ynab-grid-body-row[data-row-id="${rowId}"]`,
@@ -153,17 +165,26 @@ export function renderMetadata(
   obtainFinal(metadata, accountName)
     .then((final) => {
       if (!final) return;
-      const { account, mode, bank, rate, percentError } = final;
+      const {
+        account,
+        valueDisplay,
+        mode,
+        valueActual,
+        valueExpected,
+        rateActual,
+        rateExpected,
+        error,
+      } = final;
       if (mode === "blank") return;
 
       const dom = mode === "inflow" ? inflowDOM : outflowDOM;
-      const ynabValue = mode === "inflow" ? inflow : outflow;
 
-      const displayValue = formatCurrency(
-        bank ?? ynabValue * rate,
+      const text = formatCurrency(
+        valueDisplay ?? valueExpected,
         account.currency?.symbol,
       );
-      dom.textContent = displayValue;
+
+      dom.textContent = text;
     })
     .catch((error) => {
       throw Error(`Failed executing renderMetadata: ${error}`);

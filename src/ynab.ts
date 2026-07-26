@@ -1,8 +1,9 @@
 import { accounts, parseDate } from "./ynab-conversion";
-import { isHTMLDiv, analyzeRow, AnalysisResult } from "./analyze-row";
+import { analyzeRow, AnalysisResult } from "./analyze-row";
 import { renderMetadata } from "./render-row";
 import { getCurrencyRate } from "./convert-currency";
 import { renderButton, RenderButtonPointers } from "./render-button";
+import { isHTMLDiv } from "./helpers";
 
 /** Observer meant to be executed as soon as `document.body` exists. */
 export const observerBody = new MutationObserver((mutations) => {
