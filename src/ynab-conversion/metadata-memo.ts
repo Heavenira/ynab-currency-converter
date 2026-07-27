@@ -2,9 +2,9 @@ import { parseCurrency } from "./currency";
 import { parseDate } from "./date";
 
 export const REGEX_INFLOW =
-  /\[(?:inflow)(?::?\s*|\s*=\s*)(\d+(?:\.\d+)?)(?:@(\d+(?:\.\d+)?))?\]/i;
+  /\[(?:inflow)(?::?\s*|\s*=\s*)(\d+(?:\.\d+)?)(?:\s*@\s*(\d+(?:\.\d+)?))?\]/i;
 export const REGEX_OUTFLOW =
-  /\[(?:outflow)(?::?\s*|\s*=\s*)(\d+(?:\.\d+)?)(?:@(\d+(?:\.\d+)?))?\]/i;
+  /\[(?:outflow)(?::?\s*|\s*=\s*)(\d+(?:\.\d+)?)(?:\s*@\s*(\d+(?:\.\d+)?))?\]/i;
 
 function applyFlowMatch(memo: string, regex: RegExp, flow: FlowMetadata): void {
   const match = memo.match(regex);

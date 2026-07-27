@@ -3,6 +3,7 @@ import { getCurrencyRate } from "./convert-currency";
 import { percentError } from "./helpers";
 import { dismissToast, registerToast } from "./render-toast";
 import {
+  AccountInfo,
   accounts,
   formatCurrency,
   Metadata,
@@ -77,12 +78,32 @@ function attachRowObservers(metadata: Metadata) {
   }
 }
 
+interface ObtainFinalResult {
+  /** The account this row's transaction belongs to. */
+  account: AccountInfo;
+  /** The bank-reported value shown in the row, in the account's currency. */
+  valueDisplay: number | undefined;
+  /** The bank-reported value shown in the row, multiplied by its user-reported drift multiplier. */
+  valueAfterMultiplication: number | undefined;
+  /** The YNAB value converted using the expected exchange rate. */
+  valueExpected: number;
+  /** Which column ("inflow" or "outflow") holds the YNAB value, or "blank" if neither is set. */
+  mode: "blank" | "inflow" | "outflow";
+  /** The percent error between the expected and actual exchange rates. */
+  error: number;
+  /** Whether `valueActual` was unavailable, making `error` an estimate. */
+  isEstimate: boolean;
+}
+
 /**
  * Obtains the value that will be used for the calculation.
  * @param metadata The metadata that was already retrieved.
  * @param accountName The name of this account, if it is specified.
  */
-async function obtainFinal(metadata: Metadata, accountName: string) {
+async function obtainFinal(
+  metadata: Metadata,
+  accountName: string,
+): Promise<ObtainFinalResult | undefined> {
   const { inflow, outflow } = metadata;
 
   let account = accounts.getCurrent();
@@ -115,9 +136,9 @@ async function obtainFinal(metadata: Metadata, accountName: string) {
       break;
   }
 
-  let valueActual = valueDisplay;
-  if (valueActual !== undefined && driftPercent !== undefined) {
-    valueActual *= driftPercent;
+  let valueAfterMultiplication = valueDisplay;
+  if (valueAfterMultiplication !== undefined && driftPercent !== undefined) {
+    valueAfterMultiplication *= driftPercent;
   }
 
   const rateExpected = await getCurrencyRate(
@@ -126,16 +147,22 @@ async function obtainFinal(metadata: Metadata, accountName: string) {
   );
 
   const valueExpected = valueYNAB * rateExpected;
-  const rateActual = valueActual ? valueYNAB / valueActual : rateExpected;
+
+  const rateActual = valueAfterMultiplication
+    ? valueAfterMultiplication / valueYNAB
+    : rateExpected;
   const error = percentError(rateExpected, rateActual);
+
+  const isEstimate = valueAfterMultiplication === undefined;
 
   return {
     account,
     valueDisplay,
-    driftPercent,
+    valueAfterMultiplication,
     valueExpected,
     mode,
     error,
+    isEstimate,
   };
 }
 
@@ -176,10 +203,11 @@ export function renderMetadata(
       const {
         account,
         valueDisplay,
-        mode,
         valueExpected,
-        driftPercent,
+        valueAfterMultiplication,
+        mode,
         error,
+        isEstimate,
       } = final;
       if (mode === "blank") return;
 
@@ -201,11 +229,14 @@ export function renderMetadata(
 
       flowDOM.textContent = text;
 
-      if (error > 0.01) {
+      if (isEstimate) {
+        flowDOM.parentElement?.classList.add("ynab-cc-estimation-bg");
+        registerToast(flowDOM, `${text} is an estimation`);
+      } else if (error > 0.01) {
         flowDOM.parentElement?.classList.add("ynab-cc-alert-bg");
         registerToast(
           flowDOM,
-          `${text}${driftPercent !== undefined ? `×${driftPercent}` : ""} does not match ${expected}`,
+          `${valueAfterMultiplication !== undefined ? formatCurrency(valueAfterMultiplication, account.currency.symbol) : undefined} does not match ${expected}`,
         );
       }
     })

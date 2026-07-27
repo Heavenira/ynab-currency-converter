@@ -6,3 +6,7 @@
 .ynab-cc-alert-bg {
   background-color: color-mix(in srgb, lightcoral 50%, transparent);
 }
+
+.ynab-cc-estimation-bg {
+  background-color: color-mix(in srgb, lime 25%, transparent);
+}
