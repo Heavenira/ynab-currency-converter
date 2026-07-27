@@ -1,9 +1,9 @@
 import { parseCurrency } from "./currency";
 import { parseDate } from "./date";
 
-const REGEX_INFLOW =
+export const REGEX_INFLOW =
   /\[(?:inflow)(?::?\s*|\s*=\s*)(\d+(?:\.\d+)?)(?:@(\d+(?:\.\d+)?))?\]/i;
-const REGEX_OUTFLOW =
+export const REGEX_OUTFLOW =
   /\[(?:outflow)(?::?\s*|\s*=\s*)(\d+(?:\.\d+)?)(?:@(\d+(?:\.\d+)?))?\]/i;
 
 function applyFlowMatch(memo: string, regex: RegExp, flow: FlowMetadata): void {

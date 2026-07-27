@@ -1,25 +1,46 @@
+import { defineConfig } from "eslint/config";
 import globals from "globals";
 import pluginJs from "@eslint/js";
+import plguinCss from "@eslint/css";
+import pluginJson from "@eslint/json";
 import tseslint from "typescript-eslint";
 import prettierPlugin from "eslint-plugin-prettier";
 import prettierConfig from "eslint-config-prettier";
 
-/** @type {import('eslint').Linter.Config[]} */
-export default [
+export default defineConfig([
   {
-    ignores: ["**/dist/**", "**/node_modules/**"],
+    ignores: ["**/dist/**", "**/node_modules/**", "**/package-lock.json"],
   },
-  pluginJs.configs.recommended,
-  ...tseslint.configs.recommended,
-  prettierConfig,
   {
-    files: ["**/*.json"],
+    files: ["**/*.{js,mjs,cjs,ts,tsx}"],
+    extends: [
+      pluginJs.configs.recommended,
+      tseslint.configs.recommended,
+      prettierConfig,
+    ],
+  },
+  {
+    files: ["**/*.css"],
+    language: "css/css",
     plugins: {
+      css: plguinCss,
       prettier: prettierPlugin,
     },
+    extends: ["css/recommended"],
     rules: {
       "prettier/prettier": "warn",
-      "@typescript-eslint/no-unused-expressions": "off",
+    },
+  },
+  {
+    files: ["**/*.json"],
+    language: "json/json",
+    plugins: {
+      json: pluginJson,
+      prettier: prettierPlugin,
+    },
+    extends: ["json/recommended"],
+    rules: {
+      "prettier/prettier": "warn",
     },
   },
   {
@@ -77,4 +98,4 @@ export default [
       "@typescript-eslint/no-floating-promises": "error",
     },
   },
-];
+]);

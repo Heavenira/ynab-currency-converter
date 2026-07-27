@@ -1,12 +1,14 @@
 import { analyzeRow } from "./analyze-row";
 import { getCurrencyRate } from "./convert-currency";
 import { percentError } from "./helpers";
+import { dismissToast, registerToast } from "./render-toast";
 import {
   AccountInfo,
   accounts,
   formatCurrency,
   Metadata,
 } from "./ynab-conversion";
+import { REGEX_INFLOW, REGEX_OUTFLOW } from "./ynab-conversion/metadata-memo";
 
 /** Maps all the observers that are currently active on the page. */
 const bufferObservers: Map<Element, MutationObserver> = new Map();
@@ -34,6 +36,11 @@ function garbageCollect() {
 
 /** Dispatched dispatches when a row is removed from the DOM. */
 function handleCellRemoval(mutations: MutationRecord[]) {
+  // Dismiss all toasts if any cell was killed.
+  if (mutations.some((mutation) => mutation.removedNodes.length > 0)) {
+    dismissToast();
+  }
+
   // Look for cells that are killed.
   for (const mutation of mutations) {
     // This killed cell is outlived by its neighboring survivor.
@@ -126,10 +133,8 @@ async function obtainFinal(metadata: Metadata, accountName: string) {
   return {
     account,
     valueDisplay,
-    valueActual,
+    driftPercent,
     valueExpected,
-    rateExpected,
-    rateActual,
     mode,
     error,
   };
@@ -151,14 +156,18 @@ export function renderMetadata(
   garbageCollect();
   if (isAttachingObservers) attachRowObservers(metadata);
 
-  const inflowDOM = rowDOM.querySelector(
-    ".ynab-grid-cell-inflow > .tabular-nums",
+  const inflowDOM = rowDOM.querySelector<HTMLSpanElement>(
+    ".ynab-grid-cell-inflow > span.tabular-nums",
   );
-  const outflowDOM = rowDOM.querySelector(
-    ".ynab-grid-cell-outflow > .tabular-nums",
+  const outflowDOM = rowDOM.querySelector<HTMLSpanElement>(
+    ".ynab-grid-cell-outflow > span.tabular-nums",
   );
-  const memoDOM = rowDOM.querySelector(".ynab-grid-cell-memo > span");
-  const accountDOM = rowDOM.querySelector(".ynab-grid-cell-accountName > span");
+  const memoDOM = rowDOM.querySelector<HTMLSpanElement>(
+    ".ynab-grid-cell-memo > span",
+  );
+  const accountDOM = rowDOM.querySelector<HTMLSpanElement>(
+    ".ynab-grid-cell-accountName > span",
+  );
   if (!inflowDOM || !outflowDOM || !memoDOM) return;
 
   const accountName = accountDOM?.textContent.trim() ?? "";
@@ -169,22 +178,31 @@ export function renderMetadata(
         account,
         valueDisplay,
         mode,
-        valueActual,
         valueExpected,
-        rateActual,
-        rateExpected,
+        driftPercent,
         error,
       } = final;
       if (mode === "blank") return;
 
-      const dom = mode === "inflow" ? inflowDOM : outflowDOM;
+      const flowDOM = mode === "inflow" ? inflowDOM : outflowDOM;
+      const regex = mode === "inflow" ? REGEX_INFLOW : REGEX_OUTFLOW;
 
       const text = formatCurrency(
         valueDisplay ?? valueExpected,
         account.currency?.symbol,
       );
 
-      dom.textContent = text;
+      const expected = formatCurrency(valueExpected, account.currency?.symbol);
+
+      flowDOM.textContent = text;
+
+      if (error > 0.01) {
+        flowDOM.parentElement?.classList.add("ynab-cc-alert-bg");
+        registerToast(
+          flowDOM,
+          `${text}${driftPercent !== undefined ? `×${driftPercent}` : ""} does not match ${expected}`,
+        );
+      }
     })
     .catch((error) => {
       throw Error(`Failed executing renderMetadata: ${error}`);

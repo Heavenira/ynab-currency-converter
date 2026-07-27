@@ -35,6 +35,7 @@ const result = await build({
   entryPoints: ["src/main.ts"],
   bundle: true,
   write: false,
+  loader: { ".css": "text" },
 }).catch(() => process.exit(1));
 
 const code = result.outputFiles[0].text;
@@ -48,6 +49,7 @@ const banner = `// ==UserScript==
 // @match        https://app.ynab.com/*
 // @icon         https://www.google.com/s2/favicons?sz=64&domain=ynab.com
 // @grant        GM_xmlhttpRequest
+// @grant        GM_addStyle
 // @grant        unsafeWindow
 // @run-at       document-body
 // ==/UserScript==`;

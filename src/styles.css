@@ -1,0 +1,7 @@
+.ynab-cc-dimmed {
+  color: color-mix(in srgb, currentColor 50%, transparent);
+}
+
+.ynab-cc-alert-bg {
+  background-color: color-mix(in srgb, lightcoral 50%, transparent);
+}

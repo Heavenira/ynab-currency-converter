@@ -20,9 +20,10 @@ export const observerBody = new MutationObserver((mutations) => {
         if (gridBody) {
           // Handles rows that already exist before the observer attaches.
           setTimeout(() => {
-            for (const row of gridBody.querySelectorAll<HTMLDivElement>(
-              ":scope > div.ynab-grid-body-row",
-            )) {
+            const rows = gridBody.querySelectorAll<HTMLDivElement>(
+              ":scope > div.ynab-grid-body-row[data-row-id]",
+            );
+            for (const row of rows) {
               const { metadata } = analyzeRow(row);
               if (!metadata) return;
               renderMetadata(metadata, true);
