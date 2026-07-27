@@ -1,4 +1,4 @@
-const HOVER_DELAY_MS = 2000;
+const HOVER_DELAY_MS = 1000;
 
 /**
  * Toasts a message onto the screen given a DOM location.

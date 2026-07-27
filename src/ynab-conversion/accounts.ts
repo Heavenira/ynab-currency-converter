@@ -5,6 +5,18 @@ import {
   isCurrencySymbol,
 } from "../types/ynab";
 
+interface AccountCurrency {
+  code: CurrencyCode;
+  symbol: CurrencySymbol;
+  readable: string;
+}
+
+export const defaultCurrency: AccountCurrency = {
+  code: "CAD",
+  symbol: "$",
+  readable: "$CAD",
+};
+
 function hashStringToBase36(str: string) {
   let hash = 0;
 
@@ -18,17 +30,11 @@ function hashStringToBase36(str: string) {
 const regexAccountId =
   /[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}\/accounts\/([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12})$/;
 
-interface AccountCurrency {
-  code: CurrencyCode;
-  symbol: CurrencySymbol;
-  readable: string;
-}
-
 export interface AccountInfo {
   accountId: string;
   hash: string;
   name: string;
-  currency: AccountCurrency | undefined;
+  currency: AccountCurrency;
 }
 
 class Accounts {
@@ -70,6 +76,10 @@ class Accounts {
           readable,
         };
       }
+    }
+
+    if (!currency) {
+      currency = structuredClone(defaultCurrency);
     }
 
     this.all.push({

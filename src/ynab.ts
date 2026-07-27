@@ -1,46 +1,85 @@
 import { accounts, parseDate } from "./ynab-conversion";
 import { analyzeRow, AnalysisResult } from "./analyze-row";
 import { renderMetadata } from "./render-row";
-import { getCurrencyRate } from "./convert-currency";
 import { renderButton, RenderButtonPointers } from "./render-button";
 import { isHTMLDiv } from "./helpers";
+
+function queryGridBody1(node: Node) {
+  if (
+    isHTMLDiv(node) &&
+    node.classList.contains("layout") &&
+    node.classList.length === 1
+  ) {
+    const gridBody1 = node.querySelector<HTMLDivElement>("div.ynab-grid");
+    if (gridBody1) {
+      console.log("Observing grid body 1", gridBody1);
+      observerGridBody1.observe(gridBody1, {
+        childList: true,
+      });
+    }
+    return gridBody1;
+  }
+  return null;
+}
+
+function queryGridBody2(gridBody1: HTMLDivElement) {
+  const gridBody2 = gridBody1.querySelector<HTMLDivElement>(
+    ":scope > div.ynab-grid-container > div.ynab-grid-body",
+  );
+  if (!gridBody2) {
+    throw Error("Fatal error: getGridBody2 did not provide an exact match.");
+  }
+  console.log("Observing grid body 2", gridBody2);
+  observerGridBody2.observe(gridBody2, {
+    childList: true,
+  });
+  return gridBody2;
+}
 
 /** Observer meant to be executed as soon as `document.body` exists. */
 export const observerBody = new MutationObserver((mutations) => {
   for (const mutation of mutations) {
     for (const node of mutation.addedNodes) {
-      // This declares the beginning of our YNAB body.
-      if (
-        isHTMLDiv(node) &&
-        node.classList.contains("layout") &&
-        node.classList.length === 1
-      ) {
-        /** The grid body, containing all the transaction entries. */
-        const gridBody = node.querySelector(".ynab-grid-body");
-        if (gridBody) {
-          // Handles rows that already exist before the observer attaches.
-          setTimeout(() => {
-            const rows = gridBody.querySelectorAll<HTMLDivElement>(
-              ":scope > div.ynab-grid-body-row[data-row-id]",
-            );
-            for (const row of rows) {
-              const { metadata } = analyzeRow(row);
-              if (!metadata) return;
-              renderMetadata(metadata, true);
-            }
-          }, 1);
+      /** The grid body, containing all the transaction entries. */
+      const gridBody1 = queryGridBody1(node);
 
-          observerGrid.observe(gridBody, {
-            childList: true,
-          });
+      if (!gridBody1) continue;
+
+      const gridBody2 = queryGridBody2(gridBody1);
+
+      // Handles rows that already exist before the observer attaches.
+      setTimeout(() => {
+        const rows = gridBody2.querySelectorAll<HTMLDivElement>(
+          ":scope > div.ynab-grid-body-row[data-row-id]",
+        );
+        for (const row of rows) {
+          const { metadata } = analyzeRow(row);
+          if (!metadata) return;
+          renderMetadata(metadata, true);
         }
-      }
+      }, 1);
+    }
+  }
+});
+
+const observerGridBody1 = new MutationObserver((mutations) => {
+  for (const mutation of mutations) {
+    for (const node of mutation.addedNodes) {
+      if (!isHTMLDiv(node)) continue;
+      queryGridBody2(node);
     }
   }
 });
 
 /** Observer meant to be executed as soon as the transaction grid is realized. */
-const observerGrid = new MutationObserver((mutations) => {
+const observerGridBody2 = new MutationObserver((mutations) => {
+  const printiable: Node[] = [];
+  for (const mutation of mutations) {
+    for (const node of mutation.addedNodes) {
+      if (!isHTMLDiv(node)) continue;
+      printiable.push(node);
+    }
+  }
   let account = accounts.getCurrent();
 
   const pointers: Partial<RenderButtonPointers> = {};

@@ -1,4 +1,5 @@
 export const CURRENCY_SYMBOLS = [
+  "",
   "$",
   "؋",
   "L",

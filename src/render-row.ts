@@ -3,7 +3,6 @@ import { getCurrencyRate } from "./convert-currency";
 import { percentError } from "./helpers";
 import { dismissToast, registerToast } from "./render-toast";
 import {
-  AccountInfo,
   accounts,
   formatCurrency,
   Metadata,
@@ -191,6 +190,12 @@ export function renderMetadata(
         valueDisplay ?? valueExpected,
         account.currency?.symbol,
       );
+
+      let memo = memoDOM.innerText;
+      for (const regex of [REGEX_INFLOW, REGEX_OUTFLOW]) {
+        memo = memo.replace(regex, `<span class="ynab-cc-dimmed">$&</span>`);
+      }
+      memoDOM.innerHTML = memo;
 
       const expected = formatCurrency(valueExpected, account.currency?.symbol);
 

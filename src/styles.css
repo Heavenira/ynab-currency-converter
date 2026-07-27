@@ -1,5 +1,6 @@
 .ynab-cc-dimmed {
   color: color-mix(in srgb, currentColor 50%, transparent);
+  font-size: 90%;
 }
 
 .ynab-cc-alert-bg {

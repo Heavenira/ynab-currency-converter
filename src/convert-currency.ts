@@ -1,5 +1,6 @@
 import { CurrencyCode } from "./types/ynab";
 import { DateStruct } from "./ynab-conversion";
+import { defaultCurrency } from "./ynab-conversion/accounts";
 
 type CurrencyRates<B extends CurrencyCode, C extends CurrencyCode> = {
   amount: number;
@@ -15,6 +16,17 @@ async function fetchCurrency<B extends CurrencyCode, C extends CurrencyCode>(
 ): Promise<CurrencyRates<B, C>> {
   const formattedDate = `${date.year}-${date.month.padStart(2, "0")}-${date.day.padStart(2, "0")}`;
   const url = `https://api.frankfurter.dev/v1/${formattedDate}?base=${encodeURIComponent(base)}&symbols=${encodeURIComponent(converted)}`;
+
+  if ((base as string) === (converted as string)) {
+    return {
+      amount: 1,
+      date: formattedDate,
+      base,
+      rates: {
+        [converted]: 1,
+      } as Record<C, number>,
+    };
+  }
 
   const responseText = await new Promise<string>((res, rej) => {
     GM_xmlhttpRequest({
@@ -40,23 +52,16 @@ async function fetchCurrency<B extends CurrencyCode, C extends CurrencyCode>(
   return JSON.parse(responseText) as CurrencyRates<B, C>;
 }
 
-const defaultCurrency: CurrencyCode = "CAD";
-
 const currencyLookup: Map<string, number> = new Map();
 
 export async function getCurrencyRate(
   date: DateStruct,
-  convertTo?: CurrencyCode,
+  convertTo: CurrencyCode,
 ): Promise<number> {
-  const base = defaultCurrency;
-  if (!convertTo)
-    throw Error("Supplied an empty string as the converted currency.");
-  if (base === convertTo) return 1.0;
-
-  const key = `-${date.day}-${date.month}-${date.year}-${base}-${convertTo}`;
+  const key = `-${date.day}-${date.month}-${date.year}-${convertTo}`;
   const found = currencyLookup.get(key);
   if (found !== undefined) return found;
-  const fetched = await fetchCurrency(base, convertTo, date);
+  const fetched = await fetchCurrency(defaultCurrency.code, convertTo, date);
   currencyLookup.set(key, fetched.rates[convertTo]);
   return fetched.rates[convertTo];
 }
