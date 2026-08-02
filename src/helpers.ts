@@ -20,8 +20,15 @@ export function percentError(
   );
 }
 
-/** Simulates a user typing `text` into `input`, dispatching an `input` event per character. */
-export function simulateTyping(input: HTMLInputElement, text: string) {
+/**
+ * Simulates a user typing `text` into `input`, dispatching an `input` event per character.
+ * @param clickAfter If true, clicks `input` 50ms after typing finishes, as if the user clicked it themselves.
+ */
+export function simulateTyping(
+  input: HTMLInputElement,
+  text: string,
+  clickAfter: boolean,
+) {
   const nativeValueSetter = Object.getOwnPropertyDescriptor(
     window.HTMLInputElement.prototype,
     "value",
@@ -38,5 +45,17 @@ export function simulateTyping(input: HTMLInputElement, text: string) {
         inputType: "insertText",
       }),
     );
+  }
+
+  if (clickAfter) {
+    setTimeout(() => {
+      input.focus();
+      input.dispatchEvent(new FocusEvent("focus", { bubbles: true }));
+      input.dispatchEvent(new MouseEvent("mousedown", { bubbles: true }));
+      input.click();
+      input.dispatchEvent(new MouseEvent("mouseup", { bubbles: true }));
+      input.select();
+      input.setSelectionRange(0, input.value.length);
+    }, 50);
   }
 }

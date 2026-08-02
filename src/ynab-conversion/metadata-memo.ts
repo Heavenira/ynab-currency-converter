@@ -24,8 +24,13 @@ function formatFlow(
 ): string {
   if (flow.bankValue === undefined) return output;
 
-  const drift = flow.driftPercent !== undefined ? `@${flow.driftPercent}` : "";
-  const formatted = `[${label} ${flow.bankValue}${drift}]`;
+  const flowRounded = parseFloat(flow.bankValue.toFixed(5));
+  const driftRounded =
+    flow.driftPercent !== undefined
+      ? parseFloat(flow.driftPercent.toFixed(5))
+      : undefined;
+  const drift = driftRounded !== undefined ? `@${driftRounded}` : "";
+  const formatted = `[${label} ${flowRounded}${drift}]`;
 
   if (regex.test(output)) {
     return output.replace(regex, formatted);

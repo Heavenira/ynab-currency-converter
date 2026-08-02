@@ -8,6 +8,7 @@ import {
   formatCurrency,
   Metadata,
 } from "./ynab-conversion";
+import { defaultCurrency } from "./ynab-conversion/accounts";
 import { REGEX_INFLOW, REGEX_OUTFLOW } from "./ynab-conversion/metadata-memo";
 
 /** Maps all the observers that are currently active on the page. */
@@ -36,10 +37,7 @@ function garbageCollect() {
 
 /** Dispatched dispatches when a row is removed from the DOM. */
 function handleCellRemoval(mutations: MutationRecord[]) {
-  // Dismiss all toasts if any cell was killed.
-  if (mutations.some((mutation) => mutation.removedNodes.length > 0)) {
-    dismissToast();
-  }
+  dismissToast();
 
   // Look for cells that are killed.
   for (const mutation of mutations) {
@@ -209,15 +207,19 @@ export function renderMetadata(
         error,
         isEstimate,
       } = final;
+
+      // If this is the default currency, there is nothing to do.
+      if (account.currency.code === defaultCurrency.code) return;
       if (mode === "blank") return;
 
       const flowDOM = mode === "inflow" ? inflowDOM : outflowDOM;
-      const regex = mode === "inflow" ? REGEX_INFLOW : REGEX_OUTFLOW;
 
-      const text = formatCurrency(
-        valueDisplay ?? valueExpected,
-        account.currency?.symbol,
-      );
+      const foreignSymbol =
+        account.currency.symbol === defaultCurrency.symbol
+          ? `${account.currency.code}${account.currency.symbol}`
+          : account.currency.symbol;
+
+      const text = formatCurrency(valueDisplay ?? valueExpected, foreignSymbol);
 
       let memo = memoDOM.innerText;
       for (const regex of [REGEX_INFLOW, REGEX_OUTFLOW]) {
