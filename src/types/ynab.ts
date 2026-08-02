@@ -9,6 +9,7 @@ export const CURRENCY_SYMBOLS = [
   "د.إ",
   "kr",
   "£",
+  "€",
   "ƒ",
   "Kz",
   "R$",
