@@ -42,8 +42,8 @@ const code = result.outputFiles[0].text;
 const hash = createHash("sha256").update(code).digest("hex").slice(0, 8);
 
 const banner = `// ==UserScript==
-// @name         YNAB Currency Converter
-// @version      ${pkg.version} (${hash})
+// @name         YNAB Currency Converter (${hash})
+// @version      ${pkg.version}
 // @description  Allows YNAB to work with multiple currencies seamlessly.
 // @author       Heavenira (Ezra Oppenheimer)
 // @match        https://app.ynab.com/*
@@ -51,6 +51,7 @@ const banner = `// ==UserScript==
 // @grant        GM_xmlhttpRequest
 // @grant        GM_addStyle
 // @grant        unsafeWindow
+// @connect      api.frankfurter.dev
 // @run-at       document-body
 // ==/UserScript==`;
 
