@@ -1,6 +1,6 @@
 interface Window {
   ynab?: {
-    formatDate: (argument: 0) => string;
+    formatDate: (argument: -400000000) => string;
     formatCurrency: (value: 123456780) => string;
   };
 }

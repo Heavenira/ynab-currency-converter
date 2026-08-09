@@ -1,3 +1,8 @@
+/**
+ * This is an example of what the format *should* output.
+ * However I found that changing the timezone makes this unpredicatable.
+ * So this type should be used as a reference, NOT as a direct equality.
+ */
 export type DateFormat =
   | "1969/12/31"
   | "1969-31-12"
@@ -14,7 +19,7 @@ export interface DateStruct {
 }
 
 function getDateFormat() {
-  const exampleDate = unsafeWindow.ynab?.formatDate(0) as
+  const exampleDate = unsafeWindow.ynab?.formatDate(-400000000) as
     DateFormat | undefined;
   if (!exampleDate) throw Error("Cannot acquire the date format.");
   return exampleDate;
@@ -29,33 +34,39 @@ export function parseDate(date: string): DateStruct {
 
   const format = getDateFormat();
 
-  switch (format) {
-    case "31-12-1969":
-    case "31.12.1969":
-    case "31/12/1969":
-      return {
-        day: date.slice(0, 2),
-        month: date.slice(3, 5),
-        year: date.slice(6),
-      };
-    case "12/31/1969":
-      return {
-        month: date.slice(0, 2),
-        day: date.slice(3, 5),
-        year: date.slice(6),
-      };
-    case "1969-31-12":
-      return {
-        year: date.slice(0, 4),
-        day: date.slice(5, 7),
-        month: date.slice(8),
-      };
-    case "1969.12.31":
-    case "1969/12/31":
-      return {
-        year: date.slice(0, 4),
-        month: date.slice(5, 7),
-        day: date.slice(8),
-      };
+  const delimeter = format.match(/[-./]/)![0] as "-" | "." | "/";
+
+  const split = format.split(delimeter);
+
+  let day: string;
+  let month: string;
+  let year: string;
+
+  if (split[0].length === 4) {
+    // The year is placed at the beginning of the string.
+    year = date.slice(0, 4);
+    if (split[1].startsWith("1")) {
+      month = date.slice(5, 7);
+      day = date.slice(8);
+    } else {
+      month = date.slice(8);
+      day = date.slice(5, 7);
+    }
+  } else {
+    // The year is placed at the end of the string.
+    year = date.slice(6);
+    if (split[0].startsWith("1")) {
+      month = date.slice(0, 2);
+      day = date.slice(3, 5);
+    } else {
+      month = date.slice(3, 5);
+      day = date.slice(0, 2);
+    }
   }
+
+  return {
+    day,
+    month,
+    year,
+  };
 }
