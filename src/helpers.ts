@@ -6,20 +6,6 @@ export function isHTMLDiv(node: Node): node is HTMLDivElement {
   );
 }
 
-/** Returns the percent error between two numbers. */
-export function percentError(
-  expectedValue: number,
-  actualValue: number,
-): number {
-  if (expectedValue === 0) {
-    throw new Error("percentError is undefined when expectedValue is 0");
-  }
-
-  return (
-    (Math.abs(actualValue - expectedValue) / Math.abs(expectedValue)) * 100
-  );
-}
-
 /**
  * Simulates a user typing `text` into `input`, dispatching an `input` event per character.
  * @param clickAfter If true, clicks `input` 50ms after typing finishes, as if the user clicked it themselves.

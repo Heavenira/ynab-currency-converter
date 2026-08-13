@@ -1,6 +1,5 @@
 import { analyzeRow } from "./analyze-row";
 import { getCurrencyRate } from "./convert-currency";
-import { percentError } from "./helpers";
 import { dismissToast, registerToast } from "./render-toast";
 import {
   AccountInfo,
@@ -87,10 +86,8 @@ interface ObtainFinalResult {
   valueExpected: number;
   /** Which column ("inflow" or "outflow") holds the YNAB value, or "blank" if neither is set. */
   mode: "blank" | "inflow" | "outflow";
-  /** The percent error between the expected and actual exchange rates. */
-  error: number;
-  /** Whether `valueActual` was unavailable, making `error` an estimate. */
-  isEstimate: boolean;
+  /** Which mode to use for this cell's formatting. */
+  status: "estimate" | "error" | "";
 }
 
 /**
@@ -146,12 +143,12 @@ async function obtainFinal(
 
   const valueExpected = valueYNAB * rateExpected;
 
-  const rateActual = valueAfterMultiplication
-    ? valueAfterMultiplication / valueYNAB
-    : rateExpected;
-  const error = percentError(rateExpected, rateActual);
-
-  const isEstimate = valueAfterMultiplication === undefined;
+  let status: ObtainFinalResult["status"] = "";
+  if (valueAfterMultiplication === undefined) {
+    status = "estimate";
+  } else if (Math.abs(valueExpected - valueAfterMultiplication) > 0.02) {
+    status = "error";
+  }
 
   return {
     account,
@@ -159,8 +156,7 @@ async function obtainFinal(
     valueAfterMultiplication,
     valueExpected,
     mode,
-    error,
-    isEstimate,
+    status,
   };
 }
 
@@ -204,8 +200,7 @@ export function renderMetadata(
         valueExpected,
         valueAfterMultiplication,
         mode,
-        error,
-        isEstimate,
+        status,
       } = final;
 
       // If this is the default currency, there is nothing to do.
@@ -231,15 +226,14 @@ export function renderMetadata(
 
       flowDOM.textContent = text;
 
-      if (isEstimate) {
+      if (status === "estimate") {
         flowDOM.parentElement?.classList.add("ynab-cc-estimation-bg");
         registerToast(flowDOM, `${text} is an estimation`);
-      } else if (error > 0.01) {
+      } else if (status === "error") {
+        const message = `${valueAfterMultiplication !== undefined ? formatCurrency(valueAfterMultiplication, account.currency.symbol) : undefined} does not match ${expected}`;
+        console.log(message);
         flowDOM.parentElement?.classList.add("ynab-cc-alert-bg");
-        registerToast(
-          flowDOM,
-          `${valueAfterMultiplication !== undefined ? formatCurrency(valueAfterMultiplication, account.currency.symbol) : undefined} does not match ${expected}`,
-        );
+        registerToast(flowDOM, message);
       }
     })
     .catch((error) => {
