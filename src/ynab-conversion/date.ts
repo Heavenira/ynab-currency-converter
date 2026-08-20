@@ -70,3 +70,12 @@ export function parseDate(date: string): DateStruct {
     year,
   };
 }
+
+export function getToday(): DateStruct {
+  const now = new Date(Date.now());
+  return {
+    day: String(now.getDate()).padStart(2, "0"),
+    month: String(now.getMonth() + 1).padStart(2, "0"),
+    year: String(now.getFullYear()).padStart(4, "0"),
+  };
+}

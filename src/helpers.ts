@@ -6,6 +6,14 @@ export function isHTMLDiv(node: Node): node is HTMLDivElement {
   );
 }
 
+/** Returns if a node is of type. `HTMLDivElement` */
+export function isHTMLSpan(node: Node): node is HTMLSpanElement {
+  return (
+    node.nodeType === Node.ELEMENT_NODE &&
+    (node as HTMLElement).tagName === "SPAN"
+  );
+}
+
 /**
  * Simulates a user typing `text` into `input`, dispatching an `input` event per character.
  * @param clickAfter If true, clicks `input` 50ms after typing finishes, as if the user clicked it themselves.
