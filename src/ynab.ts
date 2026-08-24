@@ -3,6 +3,7 @@ import { analyzeRow, AnalysisResult } from "./analyze-row";
 import { renderMetadata } from "./render-row";
 import { renderButton, RenderButtonPointers } from "./render-button";
 import { observeAccountHeaderBalances } from "./render-account-header-balances";
+import { observeNavAccountCurrencies } from "./observe-nav-account-currency";
 import { isHTMLDiv } from "./helpers";
 
 function queryGridBody1(node: Node) {
@@ -40,6 +41,7 @@ function queryGridBody2(gridBody1: HTMLDivElement) {
 /** Observer meant to be executed as soon as `document.body` exists. */
 export const observerBody = new MutationObserver((mutations) => {
   observeAccountHeaderBalances();
+  observeNavAccountCurrencies();
   for (const mutation of mutations) {
     for (const node of mutation.addedNodes) {
       /** The grid body, containing all the transaction entries. */
