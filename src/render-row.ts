@@ -226,7 +226,8 @@ export function renderMetadata(
 
       flowDOM.textContent = text;
 
-      if (status === "estimate") {
+      const isReconciliation = /^\d{4}\/\d\d\s*=/.test(memo);
+      if (status === "estimate" && !isReconciliation) {
         flowDOM.parentElement?.classList.add("ynab-cc-estimation-bg");
         registerToast(flowDOM, `${text} is an estimation`);
       } else if (status === "error") {
